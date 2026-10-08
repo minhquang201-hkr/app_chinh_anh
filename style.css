@@ -591,6 +591,175 @@ body {
   color: #e2e8f0;
 }
 
+/* ================= AI Makeup & Beauty Studio Styles ================= */
+.ai-makeup-box {
+  background: linear-gradient(145deg, rgba(236, 72, 153, 0.09), rgba(244, 63, 94, 0.05));
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  border-radius: var(--border-radius-md);
+  padding: 0.95rem;
+  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.08);
+}
+
+.icon-makeup {
+  color: #fb7185;
+}
+
+.badge-makeup {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.makeup-tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.m-tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.4rem;
+  min-width: 52px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.m-tab-btn i {
+  font-size: 0.8rem;
+}
+
+.m-tab-btn:hover:not(:disabled) {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fff;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.m-tab-btn.active:not(:disabled) {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.3), rgba(225, 29, 72, 0.3));
+  border-color: #f43f5e;
+  color: #ffe4e6;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.25);
+}
+
+.m-tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mtab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.m-sublabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #fda4af;
+}
+
+.color-palette {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+  transform: scale(1.2);
+}
+
+.custom-color-picker {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background: transparent;
+}
+
+.m-slider-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.m-slider-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.m-slider-head span:last-child {
+  color: #fb7185;
+  font-weight: 600;
+}
+
+.makeup-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.btn-primary-makeup {
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  color: #ffffff;
+  border: none;
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
+}
+
+.btn-primary-makeup:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.5);
+}
+
+.btn-primary-makeup:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .image-meta-badge {
   position: absolute;
   bottom: 1.25rem;

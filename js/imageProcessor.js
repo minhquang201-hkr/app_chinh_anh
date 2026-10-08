@@ -542,19 +542,180 @@ class ImageProcessor {
   }
 
   /**
-   * Giới hạn giá trị màu trong khoảng [0, 255]
+   * Chuyển đổi mã màu Hex (#RRGGBB) sang {r, g, b}
    */
-  clamp(value) {
-    return value < 0 ? 0 : value > 255 ? 255 : Math.round(value);
+  hexToRgb(hex) {
+    if (!hex) return { r: 225, g: 29, b: 72 };
+    const cleanHex = hex.replace('#', '');
+    const bigint = parseInt(cleanHex, 16);
+    return {
+      r: (bigint >> 16) & 255,
+      g: (bigint >> 8) & 255,
+      b: bigint & 255,
+    };
   }
 
   /**
-   * Lấy URL ảnh đã xử lý để tải về hoặc lưu lịch sử
-   * @param {string} format 'image/png' hoặc 'image/jpeg'
-   * @returns {string} Data URL
+   * Bộ xử lý Trang điểm Khuôn mặt & AI Beauty Studio
+   * @param {Object} config
    */
-  getDataURL(format = 'image/png', quality = 0.92) {
-    return this.canvas.toDataURL(format, quality);
+  applyMakeup(config) {
+    if (!this.originalImageData) return;
+
+    const width = this.width;
+    const height = this.height;
+    const src = this.originalImageData.data;
+    
+    const output = this.ctx.createImageData(width, height);
+    const dst = output.data;
+
+    for (let i = 0; i < src.length; i++) {
+      dst[i] = src[i];
+    }
+
+    const {
+      lipstick = { color: '#e11d48', opacity: 40, gloss: 25 },
+      eyes = { color: '#6366f1', opacity: 35, brightness: 30 },
+      skin = { smooth: 50, tone: 30, blemish: 40 },
+      hair = { color: '#78350f', opacity: 45 },
+      nose = { highlight: 40, contour: 35 }
+    } = config;
+
+    const lipColor = this.hexToRgb(lipstick.color);
+    const eyeColor = this.hexToRgb(eyes.color);
+    const hairColor = this.hexToRgb(hair.color);
+
+    const lipAlpha = (lipstick.opacity || 0) / 100;
+    const lipGloss = (lipstick.gloss || 0) / 100;
+    const eyeAlpha = (eyes.opacity || 0) / 100;
+    const eyeBright = (eyes.brightness || 0) / 100;
+    const skinSmooth = (skin.smooth || 0) / 100;
+    const skinTone = (skin.tone || 0) / 100;
+    const hairAlpha = (hair.opacity || 0) / 100;
+    const noseHi = (nose.highlight || 0) / 100;
+    const noseCt = (nose.contour || 0) / 100;
+
+    // 1. Làn da: Nhận diện vùng da và làm mịn (Edge-preserving Bilateral Filter)
+    if (skinSmooth > 0 || skinTone > 0) {
+      const blurRadius = Math.max(2, Math.round(skinSmooth * 5));
+
+      for (let y = blurRadius; y < height - blurRadius; y++) {
+        for (let x = blurRadius; x < width - blurRadius; x++) {
+          const idx = (y * width + x) * 4;
+          const r = src[idx], g = src[idx + 1], b = src[idx + 2];
+
+          // Điều kiện nhận diện màu da người (Human Skin in RGB space)
+          const isSkin = r > 65 && g > 35 && b > 20 &&
+                         (r - g) > 10 && (r - b) > 12 &&
+                         r > g && g > b;
+
+          if (isSkin) {
+            let sumR = 0, sumG = 0, sumB = 0, count = 0;
+            for (let dy = -blurRadius; dy <= blurRadius; dy += 2) {
+              for (let dx = -blurRadius; dx <= blurRadius; dx += 2) {
+                const nIdx = ((y + dy) * width + (x + dx)) * 4;
+                const nr = src[nIdx], ng = src[nIdx + 1], nb = src[nIdx + 2];
+                const diff = Math.abs(r - nr) + Math.abs(g - ng) + Math.abs(b - nb);
+                if (diff < 70) {
+                  sumR += nr; sumG += ng; sumB += nb; count++;
+                }
+              }
+            }
+
+            if (count > 0) {
+              const blendR = (sumR / count) * skinSmooth + r * (1 - skinSmooth);
+              const blendG = (sumG / count) * skinSmooth + g * (1 - skinSmooth);
+              const blendB = (sumB / count) * skinSmooth + b * (1 - skinSmooth);
+
+              const toneBoost = skinTone * 22;
+              dst[idx]     = this.clamp(blendR + toneBoost);
+              dst[idx + 1] = this.clamp(blendG + toneBoost * 0.75);
+              dst[idx + 2] = this.clamp(blendB + toneBoost * 0.75);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Xử lý Son Môi, Mắt, Tóc và Sống Mũi
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        let r = dst[idx], g = dst[idx + 1], b = dst[idx + 2];
+
+        // 2.1 Son môi (Lip Color & Gloss)
+        if (lipAlpha > 0) {
+          const isLip = r > 85 && (r > g * 1.25) && (r > b * 1.3) && (g < 175);
+          if (isLip) {
+            const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            const newR = r * (1 - lipAlpha) + (lipColor.r * lum + r * 0.35) * lipAlpha;
+            const newG = g * (1 - lipAlpha) + (lipColor.g * lum * 0.85) * lipAlpha;
+            const newB = b * (1 - lipAlpha) + (lipColor.b * lum * 0.85) * lipAlpha;
+
+            const glossBonus = (lum > 0.5 ? lipGloss * 40 : 0);
+
+            r = this.clamp(newR + glossBonus);
+            g = this.clamp(newG + glossBonus * 0.9);
+            b = this.clamp(newB + glossBonus * 0.9);
+          }
+        }
+
+        // 2.2 Mắt & Lens (Eyes)
+        if (eyeAlpha > 0 || eyeBright > 0) {
+          const isIris = (r < 75 && g < 75 && b < 75) && (Math.abs(r - g) < 15);
+          if (isIris && eyeAlpha > 0) {
+            r = this.clamp(r * (1 - eyeAlpha) + eyeColor.r * 0.7 * eyeAlpha);
+            g = this.clamp(g * (1 - eyeAlpha) + eyeColor.g * 0.7 * eyeAlpha);
+            b = this.clamp(b * (1 - eyeAlpha) + eyeColor.b * 0.7 * eyeAlpha);
+          }
+
+          const isSclera = r > 150 && g > 150 && b > 150 && Math.abs(r - g) < 20 && Math.abs(r - b) < 25;
+          if (isSclera && eyeBright > 0) {
+            const eb = eyeBright * 28;
+            r = this.clamp(r + eb);
+            g = this.clamp(g + eb);
+            b = this.clamp(b + eb);
+          }
+        }
+
+        // 2.3 Nhuộm màu tóc (Hair Color Tint)
+        if (hairAlpha > 0) {
+          const isHair = (r < 115 && g < 105 && b < 100) && !((r - g) > 25 && (r - b) > 30);
+          if (isHair) {
+            const hLum = (r + g + b) / (3 * 255);
+            r = this.clamp(r * (1 - hairAlpha) + hairColor.r * (hLum + 0.3) * hairAlpha);
+            g = this.clamp(g * (1 - hairAlpha) + hairColor.g * (hLum + 0.3) * hairAlpha);
+            b = this.clamp(b * (1 - hairAlpha) + hairColor.b * (hLum + 0.3) * hairAlpha);
+          }
+        }
+
+        // 2.4 Highlight & Contour Sống Mũi (Nose)
+        if (noseHi > 0 || noseCt > 0) {
+          const normX = x / width;
+          const distFromCenter = Math.abs(normX - 0.5);
+          if (distFromCenter < 0.04 && noseHi > 0) {
+            const hiBonus = noseHi * 18 * (1 - distFromCenter / 0.04);
+            r = this.clamp(r + hiBonus);
+            g = this.clamp(g + hiBonus);
+            b = this.clamp(b + hiBonus);
+          } else if (distFromCenter >= 0.04 && distFromCenter < 0.09 && noseCt > 0) {
+            const ctDark = noseCt * 14;
+            r = this.clamp(r - ctDark);
+            g = this.clamp(g - ctDark);
+            b = this.clamp(b - ctDark);
+          }
+        }
+
+        dst[idx]     = r;
+        dst[idx + 1] = g;
+        dst[idx + 2] = b;
+      }
+    }
+
+    for (let i = 0; i < src.length; i++) {
+      src[i] = dst[i];
+    }
+    this.ctx.putImageData(output, 0, 0);
   }
 
   /**

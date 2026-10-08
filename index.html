@@ -229,6 +229,172 @@
               <span>100% (Cực nét)</span>
             </div>
           </div>
+
+          <!-- AI Face Makeup & Beauty Studio Control -->
+          <div class="control-item ai-makeup-box">
+            <div class="control-label-row">
+              <div class="control-title">
+                <i class="fa-solid fa-wand-magic-sparkles icon-makeup"></i>
+                <label>AI Trang Điểm & Khuôn Mặt</label>
+              </div>
+              <span class="badge-makeup">AI Beauty Studio</span>
+            </div>
+
+            <!-- Makeup Categories Tabs -->
+            <div class="makeup-tabs">
+              <button class="m-tab-btn active" data-mtab="lips" title="Son môi & Độ bóng" disabled>
+                <i class="fa-solid fa-kiss-wink-heart"></i>
+                <span>Son Môi</span>
+              </button>
+              <button class="m-tab-btn" data-mtab="eyes" title="Màu mắt & Làm sáng" disabled>
+                <i class="fa-solid fa-eye"></i>
+                <span>Mắt</span>
+              </button>
+              <button class="m-tab-btn" data-mtab="skin" title="Làm mịn & Trắng da" disabled>
+                <i class="fa-solid fa-sparkles"></i>
+                <span>Làn Da</span>
+              </button>
+              <button class="m-tab-btn" data-mtab="hair" title="Nhuộm màu tóc thời thượng" disabled>
+                <i class="fa-solid fa-wind"></i>
+                <span>Màu Tóc</span>
+              </button>
+              <button class="m-tab-btn" data-mtab="nose" title="Thon gọn & Highlight mũi" disabled>
+                <i class="fa-solid fa-gem"></i>
+                <span>Sống Mũi</span>
+              </button>
+            </div>
+
+            <!-- Tab 1: Son Môi (Lips) -->
+            <div id="mtabContentLips" class="mtab-content">
+              <label class="m-sublabel">Màu son thịnh hành:</label>
+              <div class="color-palette" id="lipColorPalette">
+                <button class="color-swatch active" data-color="#e11d48" style="background:#e11d48" title="Đỏ Ruby"></button>
+                <button class="color-swatch" data-color="#ea580c" style="background:#ea580c" title="Cam San Hô"></button>
+                <button class="color-swatch" data-color="#f43f5e" style="background:#f43f5e" title="Hồng Đất"></button>
+                <button class="color-swatch" data-color="#be123c" style="background:#be123c" title="Đỏ Rượu Vang"></button>
+                <button class="color-swatch" data-color="#db2777" style="background:#db2777" title="Hồng Cherry"></button>
+                <button class="color-swatch" data-color="#b45309" style="background:#b45309" title="Cam Nâu Đất"></button>
+                <input type="color" id="customLipColor" value="#e11d48" class="custom-color-picker" title="Tự chọn màu">
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Độ đậm màu son:</span>
+                  <span id="lipOpacityVal">40%</span>
+                </div>
+                <input type="range" id="lipOpacitySlider" min="0" max="100" value="40" disabled>
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Độ bóng môi (Lip Gloss):</span>
+                  <span id="lipGlossVal">25%</span>
+                </div>
+                <input type="range" id="lipGlossSlider" min="0" max="100" value="25" disabled>
+              </div>
+            </div>
+
+            <!-- Tab 2: Mắt (Eyes) -->
+            <div id="mtabContentEyes" class="mtab-content hidden">
+              <label class="m-sublabel">Màu phấn mắt / Lens:</label>
+              <div class="color-palette" id="eyeColorPalette">
+                <button class="color-swatch active" data-color="#6366f1" style="background:#6366f1" title="Xanh Khói Sapphire"></button>
+                <button class="color-swatch" data-color="#8b5cf6" style="background:#8b5cf6" title="Tím Pastel"></button>
+                <button class="color-swatch" data-color="#14b8a6" style="background:#14b8a6" title="Xanh Ngọc Emerald"></button>
+                <button class="color-swatch" data-color="#d97706" style="background:#d97706" title="Nâu Hổ Phách"></button>
+                <button class="color-swatch" data-color="#475569" style="background:#475569" title="Xám Tro"></button>
+                <input type="color" id="customEyeColor" value="#6366f1" class="custom-color-picker" title="Tự chọn màu">
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Độ đậm màu mắt:</span>
+                  <span id="eyeOpacityVal">35%</span>
+                </div>
+                <input type="range" id="eyeOpacitySlider" min="0" max="100" value="35" disabled>
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Làm sáng & Long lanh mắt:</span>
+                  <span id="eyeBrightVal">30%</span>
+                </div>
+                <input type="range" id="eyeBrightSlider" min="0" max="100" value="30" disabled>
+              </div>
+            </div>
+
+            <!-- Tab 3: Làn Da (Skin) -->
+            <div id="mtabContentSkin" class="mtab-content hidden">
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Làm mịn da (Skin Smoothing):</span>
+                  <span id="skinSmoothVal">50%</span>
+                </div>
+                <input type="range" id="skinSmoothSlider" min="0" max="100" value="50" disabled>
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Trắng hồng & Nâng tông da:</span>
+                  <span id="skinToneVal">30%</span>
+                </div>
+                <input type="range" id="skinToneSlider" min="0" max="100" value="30" disabled>
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Xóa khuyết điểm / Mụn:</span>
+                  <span id="skinBlemishVal">40%</span>
+                </div>
+                <input type="range" id="skinBlemishSlider" min="0" max="100" value="40" disabled>
+              </div>
+            </div>
+
+            <!-- Tab 4: Nhuộm Tóc (Hair Dye) -->
+            <div id="mtabContentHair" class="mtab-content hidden">
+              <label class="m-sublabel">Màu nhuộm thời thượng:</label>
+              <div class="color-palette" id="hairColorPalette">
+                <button class="color-swatch active" data-color="#78350f" style="background:#78350f" title="Nâu Hạt Dẻ"></button>
+                <button class="color-swatch" data-color="#94a3b8" style="background:#94a3b8" title="Xám Khói"></button>
+                <button class="color-swatch" data-color="#b45309" style="background:#b45309" title="Vàng Bạch Kim"></button>
+                <button class="color-swatch" data-color="#ec4899" style="background:#ec4899" title="Hồng Pastel"></button>
+                <button class="color-swatch" data-color="#8b5cf6" style="background:#8b5cf6" title="Tím Lavender"></button>
+                <button class="color-swatch" data-color="#0284c7" style="background:#0284c7" title="Xanh Denim"></button>
+                <input type="color" id="customHairColor" value="#78350f" class="custom-color-picker" title="Tự chọn màu">
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Độ phủ màu tóc:</span>
+                  <span id="hairOpacityVal">45%</span>
+                </div>
+                <input type="range" id="hairOpacitySlider" min="0" max="100" value="45" disabled>
+              </div>
+            </div>
+
+            <!-- Tab 5: Sống Mũi (Nose) -->
+            <div id="mtabContentNose" class="mtab-content hidden">
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Highlight sống mũi cao:</span>
+                  <span id="noseHighlightVal">40%</span>
+                </div>
+                <input type="range" id="noseHighlightSlider" min="0" max="100" value="40" disabled>
+              </div>
+              <div class="m-slider-item">
+                <div class="m-slider-head">
+                  <span>Tạo khối cánh mũi thon gọn:</span>
+                  <span id="noseContourVal">35%</span>
+                </div>
+                <input type="range" id="noseContourSlider" min="0" max="100" value="35" disabled>
+              </div>
+            </div>
+
+            <!-- Makeup Actions -->
+            <div class="makeup-actions">
+              <button id="btnResetMakeup" class="btn btn-sm btn-secondary" disabled>
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Đặt lại</span>
+              </button>
+              <button id="btnApplyMakeup" class="btn btn-sm btn-primary-makeup" disabled>
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>💄 Áp Dụng Makeup</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Quick Actions & Compare -->

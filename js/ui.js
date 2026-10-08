@@ -72,6 +72,43 @@ class UI {
     this.btnClearMask = document.getElementById('btnClearMask');
     this.btnExecuteErase = document.getElementById('btnExecuteErase');
     this.loadingText = document.getElementById('loadingText');
+
+    // Makeup UI Elements
+    this.mTabBtns = document.querySelectorAll('.m-tab-btn');
+    this.mTabContents = document.querySelectorAll('.mtab-content');
+    this.lipColorPalette = document.getElementById('lipColorPalette');
+    this.customLipColor = document.getElementById('customLipColor');
+    this.lipOpacitySlider = document.getElementById('lipOpacitySlider');
+    this.lipOpacityVal = document.getElementById('lipOpacityVal');
+    this.lipGlossSlider = document.getElementById('lipGlossSlider');
+    this.lipGlossVal = document.getElementById('lipGlossVal');
+
+    this.eyeColorPalette = document.getElementById('eyeColorPalette');
+    this.customEyeColor = document.getElementById('customEyeColor');
+    this.eyeOpacitySlider = document.getElementById('eyeOpacitySlider');
+    this.eyeOpacityVal = document.getElementById('eyeOpacityVal');
+    this.eyeBrightSlider = document.getElementById('eyeBrightSlider');
+    this.eyeBrightVal = document.getElementById('eyeBrightVal');
+
+    this.skinSmoothSlider = document.getElementById('skinSmoothSlider');
+    this.skinSmoothVal = document.getElementById('skinSmoothVal');
+    this.skinToneSlider = document.getElementById('skinToneSlider');
+    this.skinToneVal = document.getElementById('skinToneVal');
+    this.skinBlemishSlider = document.getElementById('skinBlemishSlider');
+    this.skinBlemishVal = document.getElementById('skinBlemishVal');
+
+    this.hairColorPalette = document.getElementById('hairColorPalette');
+    this.customHairColor = document.getElementById('customHairColor');
+    this.hairOpacitySlider = document.getElementById('hairOpacitySlider');
+    this.hairOpacityVal = document.getElementById('hairOpacityVal');
+
+    this.noseHighlightSlider = document.getElementById('noseHighlightSlider');
+    this.noseHighlightVal = document.getElementById('noseHighlightVal');
+    this.noseContourSlider = document.getElementById('noseContourSlider');
+    this.noseContourVal = document.getElementById('noseContourVal');
+
+    this.btnResetMakeup = document.getElementById('btnResetMakeup');
+    this.btnApplyMakeup = document.getElementById('btnApplyMakeup');
   }
 
   /**
@@ -90,6 +127,16 @@ class UI {
     this.btnModeEraseMask.disabled = false;
     this.btnClearMask.disabled = false;
     this.btnExecuteErase.disabled = false;
+
+    this.mTabBtns.forEach(b => b.disabled = false);
+    [
+      this.lipOpacitySlider, this.lipGlossSlider,
+      this.eyeOpacitySlider, this.eyeBrightSlider,
+      this.skinSmoothSlider, this.skinToneSlider, this.skinBlemishSlider,
+      this.hairOpacitySlider,
+      this.noseHighlightSlider, this.noseContourSlider,
+      this.btnResetMakeup, this.btnApplyMakeup
+    ].forEach(el => { if (el) el.disabled = false; });
 
     this.presetBtns.forEach(btn => btn.disabled = false);
 

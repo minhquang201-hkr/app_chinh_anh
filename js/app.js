@@ -418,6 +418,197 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  /* ================= LẮNG NGHE SỰ KIỆN AI MAKEUP & BEAUTY STUDIO ================= */
+
+  const makeupConfig = {
+    lipstick: { color: '#e11d48', opacity: 40, gloss: 25 },
+    eyes: { color: '#6366f1', opacity: 35, brightness: 30 },
+    skin: { smooth: 50, tone: 30, blemish: 40 },
+    hair: { color: '#78350f', opacity: 45 },
+    nose: { highlight: 40, contour: 35 }
+  };
+
+  // Chuyển đổi tab Makeup (Lips / Eyes / Skin / Hair / Nose)
+  if (ui.mTabBtns) {
+    ui.mTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.mtab;
+        ui.mTabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        ui.mTabContents.forEach(c => c.classList.add('hidden'));
+        const activeContent = document.getElementById(`mtabContent${target.charAt(0).toUpperCase() + target.slice(1)}`);
+        if (activeContent) activeContent.classList.remove('hidden');
+      });
+    });
+  }
+
+  // Chọn màu son môi
+  if (ui.lipColorPalette) {
+    ui.lipColorPalette.addEventListener('click', (e) => {
+      const swatch = e.target.closest('.color-swatch');
+      if (swatch) {
+        ui.lipColorPalette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        makeupConfig.lipstick.color = swatch.dataset.color;
+      }
+    });
+  }
+  if (ui.customLipColor) {
+    ui.customLipColor.addEventListener('input', (e) => {
+      makeupConfig.lipstick.color = e.target.value;
+    });
+  }
+  if (ui.lipOpacitySlider) {
+    ui.lipOpacitySlider.addEventListener('input', (e) => {
+      makeupConfig.lipstick.opacity = parseInt(e.target.value, 10);
+      if (ui.lipOpacityVal) ui.lipOpacityVal.textContent = `${makeupConfig.lipstick.opacity}%`;
+    });
+  }
+  if (ui.lipGlossSlider) {
+    ui.lipGlossSlider.addEventListener('input', (e) => {
+      makeupConfig.lipstick.gloss = parseInt(e.target.value, 10);
+      if (ui.lipGlossVal) ui.lipGlossVal.textContent = `${makeupConfig.lipstick.gloss}%`;
+    });
+  }
+
+  // Chọn màu mắt & Lens
+  if (ui.eyeColorPalette) {
+    ui.eyeColorPalette.addEventListener('click', (e) => {
+      const swatch = e.target.closest('.color-swatch');
+      if (swatch) {
+        ui.eyeColorPalette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        makeupConfig.eyes.color = swatch.dataset.color;
+      }
+    });
+  }
+  if (ui.customEyeColor) {
+    ui.customEyeColor.addEventListener('input', (e) => {
+      makeupConfig.eyes.color = e.target.value;
+    });
+  }
+  if (ui.eyeOpacitySlider) {
+    ui.eyeOpacitySlider.addEventListener('input', (e) => {
+      makeupConfig.eyes.opacity = parseInt(e.target.value, 10);
+      if (ui.eyeOpacityVal) ui.eyeOpacityVal.textContent = `${makeupConfig.eyes.opacity}%`;
+    });
+  }
+  if (ui.eyeBrightSlider) {
+    ui.eyeBrightSlider.addEventListener('input', (e) => {
+      makeupConfig.eyes.brightness = parseInt(e.target.value, 10);
+      if (ui.eyeBrightVal) ui.eyeBrightVal.textContent = `${makeupConfig.eyes.brightness}%`;
+    });
+  }
+
+  // Làn da
+  if (ui.skinSmoothSlider) {
+    ui.skinSmoothSlider.addEventListener('input', (e) => {
+      makeupConfig.skin.smooth = parseInt(e.target.value, 10);
+      if (ui.skinSmoothVal) ui.skinSmoothVal.textContent = `${makeupConfig.skin.smooth}%`;
+    });
+  }
+  if (ui.skinToneSlider) {
+    ui.skinToneSlider.addEventListener('input', (e) => {
+      makeupConfig.skin.tone = parseInt(e.target.value, 10);
+      if (ui.skinToneVal) ui.skinToneVal.textContent = `${makeupConfig.skin.tone}%`;
+    });
+  }
+  if (ui.skinBlemishSlider) {
+    ui.skinBlemishSlider.addEventListener('input', (e) => {
+      makeupConfig.skin.blemish = parseInt(e.target.value, 10);
+      if (ui.skinBlemishVal) ui.skinBlemishVal.textContent = `${makeupConfig.skin.blemish}%`;
+    });
+  }
+
+  // Màu tóc
+  if (ui.hairColorPalette) {
+    ui.hairColorPalette.addEventListener('click', (e) => {
+      const swatch = e.target.closest('.color-swatch');
+      if (swatch) {
+        ui.hairColorPalette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        makeupConfig.hair.color = swatch.dataset.color;
+      }
+    });
+  }
+  if (ui.customHairColor) {
+    ui.customHairColor.addEventListener('input', (e) => {
+      makeupConfig.hair.color = e.target.value;
+    });
+  }
+  if (ui.hairOpacitySlider) {
+    ui.hairOpacitySlider.addEventListener('input', (e) => {
+      makeupConfig.hair.opacity = parseInt(e.target.value, 10);
+      if (ui.hairOpacityVal) ui.hairOpacityVal.textContent = `${makeupConfig.hair.opacity}%`;
+    });
+  }
+
+  // Sống mũi
+  if (ui.noseHighlightSlider) {
+    ui.noseHighlightSlider.addEventListener('input', (e) => {
+      makeupConfig.nose.highlight = parseInt(e.target.value, 10);
+      if (ui.noseHighlightVal) ui.noseHighlightVal.textContent = `${makeupConfig.nose.highlight}%`;
+    });
+  }
+  if (ui.noseContourSlider) {
+    ui.noseContourSlider.addEventListener('input', (e) => {
+      makeupConfig.nose.contour = parseInt(e.target.value, 10);
+      if (ui.noseContourVal) ui.noseContourVal.textContent = `${makeupConfig.nose.contour}%`;
+    });
+  }
+
+  // Nút Áp dụng Makeup
+  if (ui.btnApplyMakeup) {
+    ui.btnApplyMakeup.addEventListener('click', async () => {
+      if (!processor.hasImage()) return;
+      try {
+        ui.setLoading(true);
+        if (ui.loadingText) ui.loadingText.textContent = '💄 Đang nhận diện khuôn mặt & trang điểm...';
+        await new Promise(r => setTimeout(r, 60));
+
+        processor.applyMakeup(makeupConfig);
+        scheduleRender();
+        ui.showToast('✨ Đã hoàn tất trang điểm & làm đẹp khuôn mặt!', 'success');
+      } catch (err) {
+        console.error('Lỗi makeup:', err);
+        ui.showToast('Không thể áp dụng makeup lên ảnh này.', 'error');
+      } finally {
+        ui.setLoading(false);
+        if (ui.loadingText) ui.loadingText.textContent = 'Đang xử lý pixel...';
+      }
+    });
+  }
+
+  // Nút Đặt lại Makeup
+  if (ui.btnResetMakeup) {
+    ui.btnResetMakeup.addEventListener('click', () => {
+      makeupConfig.lipstick.opacity = 0;
+      makeupConfig.lipstick.gloss = 0;
+      makeupConfig.eyes.opacity = 0;
+      makeupConfig.eyes.brightness = 0;
+      makeupConfig.skin.smooth = 0;
+      makeupConfig.skin.tone = 0;
+      makeupConfig.hair.opacity = 0;
+      makeupConfig.nose.highlight = 0;
+      makeupConfig.nose.contour = 0;
+
+      if (ui.lipOpacitySlider) { ui.lipOpacitySlider.value = 0; ui.lipOpacityVal.textContent = '0%'; }
+      if (ui.lipGlossSlider) { ui.lipGlossSlider.value = 0; ui.lipGlossVal.textContent = '0%'; }
+      if (ui.eyeOpacitySlider) { ui.eyeOpacitySlider.value = 0; ui.eyeOpacityVal.textContent = '0%'; }
+      if (ui.eyeBrightSlider) { ui.eyeBrightSlider.value = 0; ui.eyeBrightVal.textContent = '0%'; }
+      if (ui.skinSmoothSlider) { ui.skinSmoothSlider.value = 0; ui.skinSmoothVal.textContent = '0%'; }
+      if (ui.skinToneSlider) { ui.skinToneSlider.value = 0; ui.skinToneVal.textContent = '0%'; }
+      if (ui.skinBlemishSlider) { ui.skinBlemishSlider.value = 0; ui.skinBlemishVal.textContent = '0%'; }
+      if (ui.hairOpacitySlider) { ui.hairOpacitySlider.value = 0; ui.hairOpacityVal.textContent = '0%'; }
+      if (ui.noseHighlightSlider) { ui.noseHighlightSlider.value = 0; ui.noseHighlightVal.textContent = '0%'; }
+      if (ui.noseContourSlider) { ui.noseContourSlider.value = 0; ui.noseContourVal.textContent = '0%'; }
+
+      processor.process(state.brightness, state.sharpness);
+      ui.showToast('Đã đặt lại các thông số trang điểm', 'info');
+    });
+  }
+
   /* ================= LẮNG NGHE SỰ KIỆN AUTHENTICATION ================= */
 
   // Mở & đóng modal Auth
