@@ -1,0 +1,368 @@
+/**
+ * App.js
+ * Điều phối toàn bộ hoạt động của ứng dụng: ImageProcessor, UI, AuthManager & HistoryManager.
+ */
+document.addEventListener('DOMContentLoaded', async () => {
+  const ui = new UI();
+  const processor = new ImageProcessor(ui.getCanvas());
+  const auth = new AuthManager();
+  const historyMgr = new HistoryManager();
+
+  // Khởi tạo IndexedDB
+  await historyMgr.init();
+
+  // Trạng thái ứng dụng
+  const state = {
+    brightness: 0,
+    sharpness: 0,
+    fileName: 'lumina_edited.png',
+    rafId: null
+  };
+
+  /**
+   * Lấy User ID hiện tại (hoặc 'guest' nếu chưa đăng nhập)
+   */
+  function getCurrentUserId() {
+    return auth.currentUser ? auth.currentUser.id : 'guest';
+  }
+
+  /**
+   * Tải và cập nhật danh sách lịch sử ảnh
+   */
+  async function refreshHistoryUI() {
+    const userId = getCurrentUserId();
+    const items = await historyMgr.getHistoryByUser(userId);
+    ui.renderHistory(
+      items,
+      // Khi click mở ảnh từ lịch sử
+      async (item) => {
+        try {
+          ui.setLoading(true);
+          state.fileName = item.fileName;
+          const meta = await processor.loadImageFromDataUrl(item.imageDataUrl);
+          ui.enableControls();
+          ui.updateImageMetadata(meta);
+          
+          state.brightness = item.brightness || 0;
+          state.sharpness = item.sharpness || 0;
+          ui.updateSliderDisplay(state.brightness, state.sharpness);
+          
+          ui.toggleHistoryModal(false);
+          ui.showToast(`Đã mở lại ảnh "${item.fileName}"`, 'success');
+        } catch (err) {
+          console.error('Lỗi khi mở lại ảnh:', err);
+          ui.showToast('Không thể mở ảnh từ lịch sử.', 'error');
+        } finally {
+          ui.setLoading(false);
+        }
+      },
+      // Khi click xoá ảnh khỏi lịch sử
+      async (itemId) => {
+        await historyMgr.deleteHistoryItem(itemId);
+        ui.showToast('Đã xoá ảnh khỏi lịch sử', 'info');
+        refreshHistoryUI();
+      }
+    );
+  }
+
+  /**
+   * Khởi tạo giao diện người dùng & phiên làm việc
+   */
+  ui.updateAuthUI(auth.currentUser);
+  await refreshHistoryUI();
+
+  /**
+   * Cập nhật và vẽ lại ảnh với hiệu ứng mượt mà qua requestAnimationFrame
+   */
+  function scheduleRender() {
+    if (state.rafId) {
+      cancelAnimationFrame(state.rafId);
+    }
+    state.rafId = requestAnimationFrame(() => {
+      processor.process(state.brightness, state.sharpness);
+      state.rafId = null;
+    });
+  }
+
+  /**
+   * Xử lý nạp file ảnh từ máy tính
+   * @param {File} file 
+   */
+  async function handleFile(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      ui.showToast('Vui lòng chọn một file hình ảnh hợp lệ (PNG, JPG, WEBP,...)', 'error');
+      return;
+    }
+
+    try {
+      ui.setLoading(true);
+      state.fileName = file.name.replace(/\.[^/.]+$/, '') + '_edited.png';
+      
+      const meta = await processor.loadImage(file);
+      ui.enableControls();
+      ui.updateImageMetadata(meta);
+
+      // Đặt lại các thông số về mặc định khi nạp ảnh mới
+      resetFilters();
+      ui.showToast('Đã tải ảnh lên thành công!', 'success');
+    } catch (error) {
+      console.error('Lỗi khi tải ảnh:', error);
+      ui.showToast('Đã xảy ra lỗi khi mở hình ảnh này.', 'error');
+    } finally {
+      ui.setLoading(false);
+    }
+  }
+
+  /**
+   * Đặt lại toàn bộ bộ lọc về 0
+   */
+  function resetFilters() {
+    state.brightness = 0;
+    state.sharpness = 0;
+    ui.updateSliderDisplay(0, 0);
+    scheduleRender();
+  }
+
+  /**
+   * Lưu ảnh hiện tại vào lịch sử
+   */
+  async function saveCurrentToHistory() {
+    if (!processor.hasImage()) return;
+
+    try {
+      const dataUrl = processor.getDataURL('image/png', 0.92);
+      await historyMgr.saveHistoryItem({
+        userId: getCurrentUserId(),
+        fileName: state.fileName,
+        imageDataUrl: dataUrl,
+        brightness: state.brightness,
+        sharpness: state.sharpness,
+        width: processor.width,
+        height: processor.height
+      });
+      await refreshHistoryUI();
+      ui.showToast('Đã lưu ảnh vào Lịch sử!', 'success');
+    } catch (e) {
+      console.error('Lỗi khi lưu lịch sử:', e);
+      ui.showToast('Không thể lưu ảnh vào lịch sử.', 'error');
+    }
+  }
+
+  /* ================= LẮNG NGHE SỰ KIỆN XỬ LÝ ẢNH ================= */
+
+  // Chọn file qua input
+  ui.fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  });
+
+  // Kéo và thả file ảnh vào Drop Zone
+  const dropZone = ui.dropZone;
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    if (dt.files && dt.files[0]) {
+      handleFile(dt.files[0]);
+    }
+  });
+
+  // Thanh trượt Độ sáng (Brightness)
+  ui.brightnessSlider.addEventListener('input', (e) => {
+    state.brightness = parseInt(e.target.value, 10);
+    ui.updateSliderDisplay(state.brightness, state.sharpness);
+    scheduleRender();
+  });
+
+  // Thanh trượt Độ nét (Sharpness)
+  ui.sharpnessSlider.addEventListener('input', (e) => {
+    state.sharpness = parseInt(e.target.value, 10);
+    ui.updateSliderDisplay(state.brightness, state.sharpness);
+    scheduleRender();
+  });
+
+  // Nút Đặt lại (Reset)
+  ui.btnReset.addEventListener('click', () => {
+    resetFilters();
+    ui.showToast('Đã khôi phục thông số mặc định', 'info');
+  });
+
+  // Nút Lưu vào lịch sử (Save to History)
+  ui.btnSaveHistory.addEventListener('click', () => {
+    saveCurrentToHistory();
+  });
+
+  // Nút Tải ảnh về (Download)
+  ui.btnDownload.addEventListener('click', async () => {
+    if (!processor.hasImage()) return;
+    
+    const link = document.createElement('a');
+    link.download = state.fileName;
+    const dataUrl = processor.getDataURL('image/png', 1.0);
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Tự động lưu bản ghi vào Lịch sử
+    await saveCurrentToHistory();
+    ui.showToast('Đã tải ảnh về máy thành công!', 'success');
+  });
+
+  // Giữ chuột để so sánh với ảnh gốc (Hold to Compare)
+  const startCompare = (e) => {
+    e.preventDefault();
+    if (!processor.hasImage()) return;
+    processor.renderOriginal();
+    ui.btnCompare.classList.add('active');
+  };
+
+  const endCompare = (e) => {
+    e.preventDefault();
+    if (!processor.hasImage()) return;
+    scheduleRender();
+    ui.btnCompare.classList.remove('active');
+  };
+
+  ui.btnCompare.addEventListener('mousedown', startCompare);
+  ui.btnCompare.addEventListener('mouseup', endCompare);
+  ui.btnCompare.addEventListener('mouseleave', endCompare);
+  ui.btnCompare.addEventListener('touchstart', startCompare);
+  ui.btnCompare.addEventListener('touchend', endCompare);
+
+  // Preset hiệu ứng nhanh
+  ui.presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset;
+      switch (preset) {
+        case 'brighten':
+          state.brightness = 25;
+          state.sharpness = 0;
+          break;
+        case 'sharpen':
+          state.brightness = 0;
+          state.sharpness = 60;
+          break;
+        case 'vivid':
+          state.brightness = 20;
+          state.sharpness = 45;
+          break;
+        case 'moody':
+          state.brightness = -20;
+          state.sharpness = 30;
+          break;
+      }
+      ui.updateSliderDisplay(state.brightness, state.sharpness);
+      scheduleRender();
+    });
+  });
+
+  /* ================= LẮNG NGHE SỰ KIỆN AUTHENTICATION ================= */
+
+  // Mở & đóng modal Auth
+  ui.btnOpenAuth.addEventListener('click', () => ui.toggleAuthModal(true));
+  ui.btnCloseAuth.addEventListener('click', () => ui.toggleAuthModal(false));
+  ui.authModal.addEventListener('click', (e) => {
+    if (e.target === ui.authModal) ui.toggleAuthModal(false);
+  });
+
+  // Chuyển tab Đăng nhập / Đăng ký
+  ui.tabLogin.addEventListener('click', () => ui.switchAuthTab('login'));
+  ui.tabRegister.addEventListener('click', () => ui.switchAuthTab('register'));
+
+  // Xử lý Form Đăng nhập
+  ui.formLogin.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const pass = document.getElementById('loginPassword').value;
+
+    try {
+      const user = auth.login(email, pass);
+      ui.updateAuthUI(user);
+      ui.toggleAuthModal(false);
+      ui.showToast(`Chào mừng ${user.fullname} đã đăng nhập!`, 'success');
+      await refreshHistoryUI();
+    } catch (err) {
+      ui.loginError.textContent = err.message;
+      ui.loginError.classList.remove('hidden');
+    }
+  });
+
+  // Xử lý Form Đăng ký
+  ui.formRegister.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('regFullname').value;
+    const email = document.getElementById('regEmail').value;
+    const pass = document.getElementById('regPassword').value;
+
+    try {
+      const user = auth.register(name, email, pass);
+      ui.updateAuthUI(user);
+      ui.toggleAuthModal(false);
+      ui.showToast(`Đăng ký thành công! Chào mừng ${user.fullname}!`, 'success');
+      await refreshHistoryUI();
+    } catch (err) {
+      ui.regError.textContent = err.message;
+      ui.regError.classList.remove('hidden');
+    }
+  });
+
+  // Nút đăng nhập nhanh tài khoản Demo
+  ui.btnQuickDemoLogin.addEventListener('click', async () => {
+    const demoUser = {
+      id: 'usr_demo',
+      fullname: 'Nguyễn Thành Nam (Demo)',
+      email: 'nam.demo@lumina.io',
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=NamDemo'
+    };
+    auth.setSession(demoUser);
+    ui.updateAuthUI(demoUser);
+    ui.toggleAuthModal(false);
+    ui.showToast('Đã đăng nhập bằng tài khoản trải nghiệm!', 'success');
+    await refreshHistoryUI();
+  });
+
+  // Đăng xuất
+  ui.btnLogout.addEventListener('click', async () => {
+    auth.logout();
+    ui.updateAuthUI(null);
+    ui.showToast('Đã đăng xuất tài khoản.', 'info');
+    await refreshHistoryUI();
+  });
+
+  /* ================= LẮNG NGHE SỰ KIỆN LỊCH SỬ (HISTORY) ================= */
+
+  // Mở & đóng modal Lịch sử
+  ui.btnOpenHistory.addEventListener('click', () => {
+    refreshHistoryUI();
+    ui.toggleHistoryModal(true);
+  });
+  ui.btnCloseHistory.addEventListener('click', () => ui.toggleHistoryModal(false));
+  ui.historyModal.addEventListener('click', (e) => {
+    if (e.target === ui.historyModal) ui.toggleHistoryModal(false);
+  });
+
+  // Xoá tất cả lịch sử của user
+  ui.btnClearHistory.addEventListener('click', async () => {
+    if (confirm('Bạn có chắc chắn muốn xoá toàn bộ lịch sử ảnh này không?')) {
+      await historyMgr.clearUserHistory(getCurrentUserId());
+      await refreshHistoryUI();
+      ui.showToast('Đã dọn dẹp sạch lịch sử ảnh.', 'info');
+    }
+  });
+});

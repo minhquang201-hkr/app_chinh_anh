@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LuminaEdit - Chỉnh Sửa & Lưu Trữ Ảnh Chuyên Nghiệp</title>
+  <meta name="description" content="Ứng dụng web chỉnh sửa độ sáng, độ nét và lưu trữ lịch sử ảnh trực quan, mượt mà">
+  
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <div class="logo-text">
+          <h1>LuminaEdit</h1>
+          <p>Chỉnh sửa ảnh & Quản lý lịch sử</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Nút Lịch sử ảnh -->
+        <button id="btnOpenHistory" class="btn btn-secondary" title="Xem lịch sử ảnh đã chỉnh sửa">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>Lịch sử</span>
+          <span id="historyCountBadge" class="badge-counter hidden">0</span>
+        </button>
+
+        <label for="fileInput" class="btn btn-secondary" id="btnUploadTop" title="Chọn ảnh mới">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <span>Mở ảnh</span>
+        </label>
+        
+        <button id="btnReset" class="btn btn-secondary" title="Đặt lại về mặc định" disabled>
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>Đặt lại</span>
+        </button>
+        
+        <button id="btnDownload" class="btn btn-primary" title="Tải ảnh về máy" disabled>
+          <i class="fa-solid fa-download"></i>
+          <span>Tải ảnh về</span>
+        </button>
+
+        <!-- Auth Section: Khối đăng nhập / Profile người dùng -->
+        <div id="authSection" class="auth-section">
+          <!-- Khi CHƯA đăng nhập -->
+          <button id="btnOpenAuth" class="btn btn-auth">
+            <i class="fa-solid fa-user-lock"></i>
+            <span>Đăng nhập</span>
+          </button>
+
+          <!-- Khi ĐÃ đăng nhập -->
+          <div id="userProfile" class="user-profile hidden">
+            <img id="userAvatar" src="" alt="Avatar" class="user-avatar">
+            <div class="user-info">
+              <span id="userName" class="user-name">Người dùng</span>
+              <span id="userEmail" class="user-email">email@example.com</span>
+            </div>
+            <button id="btnLogout" class="btn-icon-logout" title="Đăng xuất">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      <!-- Image Canvas Viewport -->
+      <section class="viewport-card">
+        <!-- Upload Dropzone (Hiển thị khi chưa có ảnh) -->
+        <div id="dropZone" class="drop-zone">
+          <input type="file" id="fileInput" accept="image/*" class="file-input">
+          <div class="drop-zone-content">
+            <div class="upload-icon-wrapper">
+              <i class="fa-solid fa-images"></i>
+            </div>
+            <h3>Kéo & thả hình ảnh vào đây</h3>
+            <p>hoặc nhấn để duyệt file từ máy tính của bạn</p>
+            <span class="file-support-tag">Hỗ trợ JPG, PNG, WEBP, BMP</span>
+          </div>
+        </div>
+
+        <!-- Canvas Container (Hiển thị khi đã có ảnh) -->
+        <div id="canvasWrapper" class="canvas-wrapper hidden">
+          <canvas id="imageCanvas"></canvas>
+          <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <span>Đang xử lý pixel...</span>
+          </div>
+          <!-- Tag thông tin ảnh -->
+          <div id="imageMetaBadge" class="image-meta-badge">
+            <span id="imgDimensions">1920 x 1080 px</span>
+            <span class="meta-dot">•</span>
+            <span id="imgSize">1.2 MB</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sidebar Controls -->
+      <aside class="sidebar-card">
+        <div class="sidebar-header">
+          <i class="fa-solid fa-sliders"></i>
+          <h2>Bảng Điều Khiển</h2>
+        </div>
+
+        <div class="controls-group">
+          <!-- Brightness Control -->
+          <div class="control-item">
+            <div class="control-label-row">
+              <div class="control-title">
+                <i class="fa-solid fa-sun icon-brightness"></i>
+                <label for="brightnessSlider">Độ sáng (Brightness)</label>
+              </div>
+              <span id="brightnessValue" class="value-badge">0</span>
+            </div>
+            <div class="slider-container">
+              <input 
+                type="range" 
+                id="brightnessSlider" 
+                min="-100" 
+                max="100" 
+                value="0" 
+                step="1"
+                disabled
+              >
+            </div>
+            <div class="control-ticks">
+              <span>-100 (Tối)</span>
+              <span>0 (Gốc)</span>
+              <span>+100 (Sáng)</span>
+            </div>
+          </div>
+
+          <!-- Sharpness Control -->
+          <div class="control-item">
+            <div class="control-label-row">
+              <div class="control-title">
+                <i class="fa-solid fa-gem icon-sharpness"></i>
+                <label for="sharpnessSlider">Độ nét (Sharpness)</label>
+              </div>
+              <span id="sharpnessValue" class="value-badge">0%</span>
+            </div>
+            <div class="slider-container">
+              <input 
+                type="range" 
+                id="sharpnessSlider" 
+                min="0" 
+                max="100" 
+                value="0" 
+                step="1"
+                disabled
+              >
+            </div>
+            <div class="control-ticks">
+              <span>0% (Mềm)</span>
+              <span>50% (Rõ nét)</span>
+              <span>100% (Cực nét)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions & Compare -->
+        <div class="preview-actions">
+          <button id="btnCompare" class="btn btn-outline full-width" disabled>
+            <i class="fa-solid fa-eye"></i>
+            <span>Giữ chuột để xem ảnh gốc</span>
+          </button>
+          
+          <button id="btnSaveHistory" class="btn btn-secondary full-width" disabled>
+            <i class="fa-solid fa-bookmark"></i>
+            <span>Lưu ảnh vào Lịch sử</span>
+          </button>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="presets-section">
+          <label class="section-subtitle">Hiệu ứng gợi ý nhanh</label>
+          <div class="preset-grid">
+            <button class="preset-btn" data-preset="brighten" disabled>
+              <i class="fa-solid fa-circle-half-stroke"></i>
+              <span>Tăng sáng</span>
+            </button>
+            <button class="preset-btn" data-preset="sharpen" disabled>
+              <i class="fa-solid fa-crosshairs"></i>
+              <span>Nét căng</span>
+            </button>
+            <button class="preset-btn" data-preset="vivid" disabled>
+              <i class="fa-solid fa-bolt"></i>
+              <span>Sáng & Nét</span>
+            </button>
+            <button class="preset-btn" data-preset="moody" disabled>
+              <i class="fa-solid fa-moon"></i>
+              <span>Tối nghệ thuật</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Footer Info -->
+        <div class="sidebar-footer">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span>Dữ liệu lưu trữ an toàn trên IndexedDB & LocalStorage của máy bạn.</span>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- ================= MODAL ĐĂNG NHẬP / ĐĂNG KÝ ================= -->
+  <div id="authModal" class="modal-overlay hidden">
+    <div class="modal-container auth-modal-box">
+      <button id="btnCloseAuth" class="modal-close-btn">&times;</button>
+      
+      <div class="auth-header">
+        <div class="auth-icon-circle">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <h2 id="authTitle">Tài Khoản Lumina</h2>
+        <p id="authSubtitle">Đăng nhập để đồng bộ và lưu trữ lịch sử ảnh</p>
+      </div>
+
+      <!-- Auth Tab Navigation -->
+      <div class="auth-tabs">
+        <button id="tabLogin" class="auth-tab-btn active">Đăng nhập</button>
+        <button id="tabRegister" class="auth-tab-btn">Đăng ký</button>
+      </div>
+
+      <!-- Form Đăng nhập -->
+      <form id="formLogin" class="auth-form">
+        <div class="form-group">
+          <label><i class="fa-solid fa-envelope"></i> Email</label>
+          <input type="email" id="loginEmail" placeholder="name@example.com" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-lock"></i> Mật khẩu</label>
+          <input type="password" id="loginPassword" placeholder="Nhập mật khẩu..." required>
+        </div>
+        <div id="loginError" class="auth-error-msg hidden"></div>
+        <button type="submit" class="btn btn-primary full-width btn-submit-auth">
+          <span>Đăng nhập ngay</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <button type="button" id="btnQuickDemoLogin" class="btn btn-secondary full-width mt-2">
+          <i class="fa-solid fa-bolt text-accent"></i>
+          <span>Đăng nhập nhanh tài khoản mẫu</span>
+        </button>
+      </form>
+
+      <!-- Form Đăng ký -->
+      <form id="formRegister" class="auth-form hidden">
+        <div class="form-group">
+          <label><i class="fa-solid fa-user"></i> Họ và tên</label>
+          <input type="text" id="regFullname" placeholder="Nguyễn Văn A" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-envelope"></i> Email</label>
+          <input type="email" id="regEmail" placeholder="name@example.com" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-lock"></i> Mật khẩu</label>
+          <input type="password" id="regPassword" placeholder="Tối thiểu 6 ký tự" minlength="6" required>
+        </div>
+        <div id="regError" class="auth-error-msg hidden"></div>
+        <button type="submit" class="btn btn-primary full-width btn-submit-auth">
+          <span>Tạo tài khoản mới</span>
+          <i class="fa-solid fa-user-plus"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL LỊCH SỬ ẢNH (HISTORY) ================= -->
+  <div id="historyModal" class="modal-overlay hidden">
+    <div class="modal-container history-modal-box">
+      <div class="modal-header">
+        <div class="modal-header-title">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <h2>Lịch Sử Ảnh Đã Chỉnh Sửa</h2>
+        </div>
+        <div class="modal-header-actions">
+          <button id="btnClearHistory" class="btn btn-danger-sm" title="Xoá toàn bộ lịch sử">
+            <i class="fa-solid fa-trash-can"></i>
+            <span>Xoá tất cả</span>
+          </button>
+          <button id="btnCloseHistory" class="modal-close-btn">&times;</button>
+        </div>
+      </div>
+
+      <div class="history-content">
+        <!-- Danh sách card ảnh -->
+        <div id="historyGrid" class="history-grid"></div>
+
+        <!-- Trạng thái trống khi chưa có ảnh nào trong lịch sử -->
+        <div id="historyEmpty" class="history-empty hidden">
+          <div class="empty-icon-box">
+            <i class="fa-regular fa-images"></i>
+          </div>
+          <h3>Chưa có ảnh nào trong lịch sử</h3>
+          <p>Hãy mở một bức ảnh, điều chỉnh độ sáng/độ nét và nhấn "Lưu ảnh vào Lịch sử" hoặc "Tải ảnh về".</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/imageProcessor.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
