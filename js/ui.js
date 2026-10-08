@@ -57,6 +57,18 @@ class UI {
 
     // Toast Container
     this.toastContainer = document.getElementById('toastContainer');
+
+    // Mask Canvas & AI Eraser Elements
+    this.maskCanvas = document.getElementById('maskCanvas');
+    this.btnModeClick = document.getElementById('btnModeClick');
+    this.btnModeBrush = document.getElementById('btnModeBrush');
+    this.btnModeEraseMask = document.getElementById('btnModeEraseMask');
+    this.brushSizeRow = document.getElementById('brushSizeRow');
+    this.brushSizeSlider = document.getElementById('brushSizeSlider');
+    this.brushSizeVal = document.getElementById('brushSizeVal');
+    this.btnClearMask = document.getElementById('btnClearMask');
+    this.btnExecuteErase = document.getElementById('btnExecuteErase');
+    this.loadingText = document.getElementById('loadingText');
   }
 
   /**
@@ -70,6 +82,12 @@ class UI {
     this.btnCompare.disabled = false;
     this.btnSaveHistory.disabled = false;
     
+    this.btnModeClick.disabled = false;
+    this.btnModeBrush.disabled = false;
+    this.btnModeEraseMask.disabled = false;
+    this.btnClearMask.disabled = false;
+    this.btnExecuteErase.disabled = false;
+
     this.presetBtns.forEach(btn => btn.disabled = false);
 
     // Chuyển chế độ xem từ Dropzone sang Canvas

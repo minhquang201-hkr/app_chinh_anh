@@ -11,12 +11,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Khởi tạo IndexedDB
   await historyMgr.init();
 
+  // Khởi tạo Mask Canvas cho ImageProcessor
+  if (ui.maskCanvas) {
+    processor.setMaskCanvas(ui.maskCanvas);
+  }
+
   // Trạng thái ứng dụng
   const state = {
     brightness: 0,
     sharpness: 0,
     fileName: 'lumina_edited.png',
-    rafId: null
+    rafId: null,
+    eraserMode: 'click', // 'click' | 'brush' | 'erase'
+    brushSize: 28,
+    isPainting: false,
   };
 
   /**
@@ -270,6 +278,130 @@ document.addEventListener('DOMContentLoaded', async () => {
       ui.updateSliderDisplay(state.brightness, state.sharpness);
       scheduleRender();
     });
+  });
+
+  /* ================= LẮNG NGHE SỰ KIỆN AI OBJECT ERASER ================= */
+
+  /**
+   * Chuyển đổi tọa độ con trỏ trên màn hình sang tọa độ pixel thực tế của ảnh gốc
+   */
+  function getRealCoords(e) {
+    if (!ui.maskCanvas || !processor.hasImage()) return { x: 0, y: 0 };
+    const rect = ui.maskCanvas.getBoundingClientRect();
+    const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+    const scaleX = processor.width / rect.width;
+    const scaleY = processor.height / rect.height;
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  // Chuyển đổi các chế độ Eraser (Click / Brush / Erase Mask)
+  function setEraserMode(mode) {
+    state.eraserMode = mode;
+    [ui.btnModeClick, ui.btnModeBrush, ui.btnModeEraseMask].forEach(b => b.classList.remove('active'));
+
+    if (mode === 'click') {
+      ui.btnModeClick.classList.add('active');
+      ui.brushSizeRow.classList.add('hidden');
+      if (ui.maskCanvas) ui.maskCanvas.style.cursor = 'crosshair';
+    } else if (mode === 'brush') {
+      ui.btnModeBrush.classList.add('active');
+      ui.brushSizeRow.classList.remove('hidden');
+      if (ui.maskCanvas) ui.maskCanvas.style.cursor = 'cell';
+    } else if (mode === 'erase') {
+      ui.btnModeEraseMask.classList.add('active');
+      ui.brushSizeRow.classList.remove('hidden');
+      if (ui.maskCanvas) ui.maskCanvas.style.cursor = 'alias';
+    }
+  }
+
+  ui.btnModeClick.addEventListener('click', () => setEraserMode('click'));
+  ui.btnModeBrush.addEventListener('click', () => setEraserMode('brush'));
+  ui.btnModeEraseMask.addEventListener('click', () => setEraserMode('erase'));
+
+  // Slider cỡ cọ
+  ui.brushSizeSlider.addEventListener('input', (e) => {
+    state.brushSize = parseInt(e.target.value, 10);
+    ui.brushSizeVal.textContent = `${state.brushSize}px`;
+  });
+
+  // Tương tác chuột trên Mask Canvas
+  if (ui.maskCanvas) {
+    const startAction = (e) => {
+      if (!processor.hasImage()) return;
+      e.preventDefault();
+      const coords = getRealCoords(e);
+
+      if (state.eraserMode === 'click') {
+        processor.smartSegment(coords.x, coords.y, 36);
+        ui.showToast('Đã nhận diện vùng vật thể!', 'info');
+      } else {
+        state.isPainting = true;
+        processor.paintBrushMask(coords.x, coords.y, state.brushSize, state.eraserMode === 'erase');
+      }
+    };
+
+    const moveAction = (e) => {
+      if (!processor.hasImage() || !state.isPainting) return;
+      e.preventDefault();
+      const coords = getRealCoords(e);
+      processor.paintBrushMask(coords.x, coords.y, state.brushSize, state.eraserMode === 'erase');
+    };
+
+    const stopAction = () => {
+      state.isPainting = false;
+    };
+
+    ui.maskCanvas.addEventListener('mousedown', startAction);
+    ui.maskCanvas.addEventListener('mousemove', moveAction);
+    window.addEventListener('mouseup', stopAction);
+
+    ui.maskCanvas.addEventListener('touchstart', startAction, { passive: false });
+    ui.maskCanvas.addEventListener('touchmove', moveAction, { passive: false });
+    window.addEventListener('touchend', stopAction);
+  }
+
+  // Nút Hủy vùng chọn (Clear Mask)
+  ui.btnClearMask.addEventListener('click', () => {
+    processor.clearMask();
+    ui.showToast('Đã hủy vùng chọn vật thể.', 'info');
+  });
+
+  // Nút Thực thi Xóa Vật Thể (Execute AI Inpaint)
+  ui.btnExecuteErase.addEventListener('click', async () => {
+    if (!processor.hasImage()) return;
+    if (!processor.hasMask()) {
+      ui.showToast('Vui lòng click hoặc quét cọ chọn vật thể trước khi xóa!', 'warning');
+      return;
+    }
+
+    try {
+      ui.setLoading(true);
+      if (ui.loadingText) ui.loadingText.textContent = '✨ AI đang phân tích & khôi phục nền...';
+
+      // Chờ một chút để UI render spinner
+      await new Promise(r => setTimeout(r, 60));
+
+      const success = await processor.inpaint();
+      if (success) {
+        // Áp dụng lại độ sáng/độ nét lên ảnh mới đã inpaint
+        scheduleRender();
+        ui.showToast('✨ Đã xóa vật thể và phục hồi nền thành công!', 'success');
+      } else {
+        ui.showToast('Không thể xử lý vùng chọn này.', 'error');
+      }
+    } catch (err) {
+      console.error('Lỗi khi AI Inpainting:', err);
+      ui.showToast('Đã xảy ra lỗi trong quá trình xóa vật thể.', 'error');
+    } finally {
+      ui.setLoading(false);
+      if (ui.loadingText) ui.loadingText.textContent = 'Đang xử lý pixel...';
+    }
   });
 
   /* ================= LẮNG NGHE SỰ KIỆN AUTHENTICATION ================= */

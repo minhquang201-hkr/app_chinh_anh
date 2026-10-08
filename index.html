@@ -93,10 +93,13 @@
 
         <!-- Canvas Container (Hiển thị khi đã có ảnh) -->
         <div id="canvasWrapper" class="canvas-wrapper hidden">
-          <canvas id="imageCanvas"></canvas>
+          <div class="canvas-stage" id="canvasStage">
+            <canvas id="imageCanvas"></canvas>
+            <canvas id="maskCanvas" class="mask-canvas"></canvas>
+          </div>
           <div id="loadingOverlay" class="loading-overlay hidden">
             <div class="spinner"></div>
-            <span>Đang xử lý pixel...</span>
+            <span id="loadingText">Đang xử lý pixel...</span>
           </div>
           <!-- Tag thông tin ảnh -->
           <div id="imageMetaBadge" class="image-meta-badge">
@@ -115,6 +118,55 @@
         </div>
 
         <div class="controls-group">
+          <!-- AI Object Eraser Control -->
+          <div class="control-item ai-magic-box">
+            <div class="control-label-row">
+              <div class="control-title">
+                <i class="fa-solid fa-wand-magic-sparkles icon-ai"></i>
+                <label>Xoá Vật Thể AI (Object Eraser)</label>
+              </div>
+              <span class="badge-ai">AI Inpainting</span>
+            </div>
+
+            <!-- Mode Selection -->
+            <div class="eraser-modes">
+              <button id="btnModeClick" class="mode-btn active" title="Click thông minh tự nhận diện vật thể" disabled>
+                <i class="fa-solid fa-arrow-pointer"></i>
+                <span>Click Chọn</span>
+              </button>
+              <button id="btnModeBrush" class="mode-btn" title="Cọ quét khoanh vùng thủ công" disabled>
+                <i class="fa-solid fa-paintbrush"></i>
+                <span>Cọ Quét</span>
+              </button>
+              <button id="btnModeEraseMask" class="mode-btn" title="Tẩy bớt vùng chọn" disabled>
+                <i class="fa-solid fa-eraser"></i>
+                <span>Tẩy Mask</span>
+              </button>
+            </div>
+
+            <!-- Brush Size (hiển thị khi ở chế độ Cọ/Tẩy) -->
+            <div id="brushSizeRow" class="brush-size-row hidden">
+              <div class="brush-size-header">
+                <span>Cỡ cọ:</span>
+                <span id="brushSizeVal">28px</span>
+              </div>
+              <input type="range" id="brushSizeSlider" min="6" max="90" value="28">
+            </div>
+
+            <!-- Eraser Actions -->
+            <div class="eraser-actions">
+              <button id="btnClearMask" class="btn btn-sm btn-secondary" title="Hủy vùng chọn" disabled>
+                <i class="fa-solid fa-trash-can"></i>
+                <span>Hủy chọn</span>
+              </button>
+              <button id="btnExecuteErase" class="btn btn-sm btn-primary-magic" title="Xóa vật thể và tự động lấp nền" disabled>
+                <i class="fa-solid fa-wand-sparkles"></i>
+                <span>✨ Xoá Ngay</span>
+              </button>
+            </div>
+            <p class="ai-hint">💡 <b>Click</b> vào vật thể hoặc <b>Quét cọ</b> để chọn vùng, sau đó bấm <b>Xoá Ngay</b>.</p>
+          </div>
+
           <!-- Brightness Control -->
           <div class="control-item">
             <div class="control-label-row">
