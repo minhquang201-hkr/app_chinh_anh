@@ -144,10 +144,19 @@
               </button>
             </div>
 
+            <!-- Click Size & Sensitivity (hiển thị khi ở chế độ Click) -->
+            <div id="clickSizeRow" class="brush-size-row">
+              <div class="brush-size-header">
+                <span>Cỡ vùng chọn Click:</span>
+                <span id="clickSizeVal">45px</span>
+              </div>
+              <input type="range" id="clickSizeSlider" min="10" max="150" value="45">
+            </div>
+
             <!-- Brush Size (hiển thị khi ở chế độ Cọ/Tẩy) -->
             <div id="brushSizeRow" class="brush-size-row hidden">
               <div class="brush-size-header">
-                <span>Cỡ cọ:</span>
+                <span>Cỡ cọ quét:</span>
                 <span id="brushSizeVal">28px</span>
               </div>
               <input type="range" id="brushSizeSlider" min="6" max="90" value="28">

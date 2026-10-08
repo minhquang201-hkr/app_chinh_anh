@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     fileName: 'lumina_edited.png',
     rafId: null,
     eraserMode: 'click', // 'click' | 'brush' | 'erase'
+    clickRadius: 45,
     brushSize: 28,
     isPainting: false,
   };
@@ -307,15 +308,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (mode === 'click') {
       ui.btnModeClick.classList.add('active');
-      ui.brushSizeRow.classList.add('hidden');
+      if (ui.clickSizeRow) ui.clickSizeRow.classList.remove('hidden');
+      if (ui.brushSizeRow) ui.brushSizeRow.classList.add('hidden');
       if (ui.maskCanvas) ui.maskCanvas.style.cursor = 'crosshair';
     } else if (mode === 'brush') {
       ui.btnModeBrush.classList.add('active');
-      ui.brushSizeRow.classList.remove('hidden');
+      if (ui.clickSizeRow) ui.clickSizeRow.classList.add('hidden');
+      if (ui.brushSizeRow) ui.brushSizeRow.classList.remove('hidden');
       if (ui.maskCanvas) ui.maskCanvas.style.cursor = 'cell';
     } else if (mode === 'erase') {
       ui.btnModeEraseMask.classList.add('active');
-      ui.brushSizeRow.classList.remove('hidden');
+      if (ui.clickSizeRow) ui.clickSizeRow.classList.add('hidden');
+      if (ui.brushSizeRow) ui.brushSizeRow.classList.remove('hidden');
       if (ui.maskCanvas) ui.maskCanvas.style.cursor = 'alias';
     }
   }
@@ -324,11 +328,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   ui.btnModeBrush.addEventListener('click', () => setEraserMode('brush'));
   ui.btnModeEraseMask.addEventListener('click', () => setEraserMode('erase'));
 
+  // Slider cỡ vùng chọn Click
+  if (ui.clickSizeSlider) {
+    ui.clickSizeSlider.addEventListener('input', (e) => {
+      state.clickRadius = parseInt(e.target.value, 10);
+      if (ui.clickSizeVal) ui.clickSizeVal.textContent = `${state.clickRadius}px`;
+    });
+  }
+
   // Slider cỡ cọ
-  ui.brushSizeSlider.addEventListener('input', (e) => {
-    state.brushSize = parseInt(e.target.value, 10);
-    ui.brushSizeVal.textContent = `${state.brushSize}px`;
-  });
+  if (ui.brushSizeSlider) {
+    ui.brushSizeSlider.addEventListener('input', (e) => {
+      state.brushSize = parseInt(e.target.value, 10);
+      if (ui.brushSizeVal) ui.brushSizeVal.textContent = `${state.brushSize}px`;
+    });
+  }
 
   // Tương tác chuột trên Mask Canvas
   if (ui.maskCanvas) {
@@ -338,7 +352,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const coords = getRealCoords(e);
 
       if (state.eraserMode === 'click') {
-        processor.smartSegment(coords.x, coords.y, 36);
+        processor.smartSegment(coords.x, coords.y, state.clickRadius, 38);
         ui.showToast('Đã nhận diện vùng vật thể!', 'info');
       } else {
         state.isPainting = true;
@@ -389,9 +403,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const success = await processor.inpaint();
       if (success) {
-        // Áp dụng lại độ sáng/độ nét lên ảnh mới đã inpaint
-        scheduleRender();
-        ui.showToast('✨ Đã xóa vật thể và phục hồi nền thành công!', 'success');
+        // Tái tạo lại hiệu ứng độ sáng / độ nét lên ảnh mới đã inpaint
+        processor.process(state.brightness, state.sharpness);
+        ui.showToast('✨ Đã xóa vật thể và phục hồi nền sạch sẽ!', 'success');
       } else {
         ui.showToast('Không thể xử lý vùng chọn này.', 'error');
       }

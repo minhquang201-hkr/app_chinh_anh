@@ -63,6 +63,9 @@ class UI {
     this.btnModeClick = document.getElementById('btnModeClick');
     this.btnModeBrush = document.getElementById('btnModeBrush');
     this.btnModeEraseMask = document.getElementById('btnModeEraseMask');
+    this.clickSizeRow = document.getElementById('clickSizeRow');
+    this.clickSizeSlider = document.getElementById('clickSizeSlider');
+    this.clickSizeVal = document.getElementById('clickSizeVal');
     this.brushSizeRow = document.getElementById('brushSizeRow');
     this.brushSizeSlider = document.getElementById('brushSizeSlider');
     this.brushSizeVal = document.getElementById('brushSizeVal');

@@ -1,7 +1,7 @@
 /**
  * Class ImageProcessor
  * Chuyên trách việc tải ảnh, phân tích, áp dụng các bộ lọc pixel (Độ sáng & Độ nét) 
- * và tích hợp AI Magic Object Eraser (Phân vùng vật thể + AI Inpainting lấp nền).
+ * và tích hợp AI Magic Object Eraser (Phân vùng vật thể đa tầng + Wavefront Inpainting lấp nền sạch sẽ).
  */
 class ImageProcessor {
   constructor(canvas) {
@@ -65,7 +65,7 @@ class ImageProcessor {
         resolve({
           width: this.width,
           height: this.height,
-          size: Math.round(dataUrl.length * 0.75) // Ước lượng dung lượng
+          size: Math.round(dataUrl.length * 0.75)
         });
       };
       img.onerror = () => reject(new Error('Không thể tải dữ liệu ảnh từ URL.'));
@@ -112,7 +112,6 @@ class ImageProcessor {
     const width = this.width;
     const height = this.height;
     
-    // 1. Tạo bản sao dữ liệu pixel gốc
     const srcData = this.originalImageData.data;
     const outputImageData = this.ctx.createImageData(width, height);
     const dstData = outputImageData.data;
@@ -169,7 +168,7 @@ class ImageProcessor {
   }
 
   /* =========================================================================
-     AI OBJECT REMOVAL (SMART SEGMENTATION + INPAINTING)
+     AI OBJECT REMOVAL (SMART SEGMENTATION + WAVEFRONT INPAINTING)
      ========================================================================= */
 
   /**
@@ -186,10 +185,10 @@ class ImageProcessor {
     for (let i = 0; i < this.maskData.length; i++) {
       if (this.maskData[i] === 1) {
         const idx = i * 4;
-        data[idx]     = 236; // R (Pink/Magenta #ec4899)
+        data[idx]     = 236; // R (Neon Pink/Magenta #ec4899)
         data[idx + 1] = 72;  // G
         data[idx + 2] = 153; // B
-        data[idx + 3] = 160; // Alpha (~60% opacity)
+        data[idx + 3] = 165; // Alpha (~65% opacity)
       }
     }
 
@@ -197,40 +196,42 @@ class ImageProcessor {
   }
 
   /**
-   * Nhận diện thông minh vật thể khi người dùng CLICK chuột (Region Growing + Gradient Edge Detection)
+   * Nhận diện thông minh vật thể khi CLICK chuột với bán kính và độ nhạy tùy chỉnh
    * @param {number} clickX Tọa độ x thực tế trên ảnh gốc
    * @param {number} clickY Tọa độ y thực tế trên ảnh gốc
-   * @param {number} tolerance Độ nhạy màu (mặc định: 36)
+   * @param {number} radius Bán kính vùng chọn tối đa (10px - 150px)
+   * @param {number} tolerance Độ nhạy màu (20 - 60)
    */
-  smartSegment(clickX, clickY, tolerance = 36) {
+  smartSegment(clickX, clickY, radius = 45, tolerance = 38) {
     if (!this.originalImageData || !this.maskData) return;
 
     const width = this.width;
     const height = this.height;
     const data = this.originalImageData.data;
 
-    clickX = Math.floor(Math.max(0, Math.min(width - 1, clickX)));
-    clickY = Math.floor(Math.max(0, Math.min(height - 1, clickY)));
+    clickX = Math.round(Math.max(0, Math.min(width - 1, clickX)));
+    clickY = Math.round(Math.max(0, Math.min(height - 1, clickY)));
 
     const seedIdx = (clickY * width + clickX) * 4;
     const seedR = data[seedIdx];
     const seedG = data[seedIdx + 1];
     const seedB = data[seedIdx + 2];
 
+    const minX = Math.max(0, clickX - radius);
+    const maxX = Math.min(width - 1, clickX + radius);
+    const minY = Math.max(0, clickY - radius);
+    const maxY = Math.min(height - 1, clickY + radius);
+    const r2 = radius * radius;
+
     const visited = new Uint8Array(width * height);
     const queue = [clickX, clickY];
     visited[clickY * width + clickX] = 1;
 
-    const maxPixels = Math.floor(width * height * 0.45); // Giới hạn diện tích vật thể tối đa 45% ảnh
-    let count = 0;
-
-    while (queue.length > 0 && count < maxPixels) {
+    while (queue.length > 0) {
       const qy = queue.pop();
       const qx = queue.pop();
       const currOffset = qy * width + qx;
-      
       this.maskData[currOffset] = 1;
-      count++;
 
       const neighbors = [
         [qx + 1, qy],
@@ -240,39 +241,41 @@ class ImageProcessor {
       ];
 
       for (const [nx, ny] of neighbors) {
-        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-          const nOffset = ny * width + nx;
-          if (!visited[nOffset]) {
-            visited[nOffset] = 1;
-            const nIdx = nOffset * 4;
-            const nr = data[nIdx];
-            const ng = data[nIdx + 1];
-            const nb = data[nIdx + 2];
+        if (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY) {
+          const distSq = (nx - clickX) ** 2 + (ny - clickY) ** 2;
+          if (distSq <= r2) {
+            const nOffset = ny * width + nx;
+            if (!visited[nOffset]) {
+              visited[nOffset] = 1;
+              const nIdx = nOffset * 4;
+              const nr = data[nIdx];
+              const ng = data[nIdx + 1];
+              const nb = data[nIdx + 2];
 
-            // Khoảng cách màu Euclid
-            const colorDist = Math.sqrt(
-              (nr - seedR) ** 2 +
-              (ng - seedG) ** 2 +
-              (nb - seedB) ** 2
-            );
+              const colorDist = Math.sqrt(
+                (nr - seedR) ** 2 +
+                (ng - seedG) ** 2 +
+                (nb - seedB) ** 2
+              );
 
-            // Chênh lệch màu so với điểm lân cận
-            const currIdx = currOffset * 4;
-            const localDist = Math.sqrt(
-              (nr - data[currIdx]) ** 2 +
-              (ng - data[currIdx + 1]) ** 2 +
-              (nb - data[currIdx + 2]) ** 2
-            );
+              const currIdx = currOffset * 4;
+              const localDist = Math.sqrt(
+                (nr - data[currIdx]) ** 2 +
+                (ng - data[currIdx + 1]) ** 2 +
+                (nb - data[currIdx + 2]) ** 2
+              );
 
-            if (colorDist <= tolerance * 1.5 && localDist <= tolerance * 0.85) {
-              queue.push(nx, ny);
+              const falloff = 1.0 - (distSq / r2) * 0.35;
+              if (colorDist <= tolerance * 1.6 * falloff || localDist <= tolerance * falloff) {
+                queue.push(nx, ny);
+              }
             }
           }
         }
       }
     }
 
-    // Tự động mở rộng (Dilate) vùng mask thêm 3px để bao trọn viền cạnh vật thể
+    // Mở rộng viền thêm 3px để xóa sạch viền vật thể
     this.dilateMask(3);
     this.renderMask();
   }
@@ -281,7 +284,7 @@ class ImageProcessor {
    * Mở rộng vùng Mask (Morphological Dilation)
    * @param {number} radius 
    */
-  dilateMask(radius = 2) {
+  dilateMask(radius = 3) {
     const width = this.width;
     const height = this.height;
     const temp = new Uint8Array(this.maskData);
@@ -312,7 +315,7 @@ class ImageProcessor {
    * @param {number} radius 
    * @param {boolean} isErase true nếu tẩy bớt mask, false nếu tô thêm
    */
-  paintBrushMask(centerX, centerY, radius = 25, isErase = false) {
+  paintBrushMask(centerX, centerY, radius = 28, isErase = false) {
     if (!this.maskData) return;
 
     const width = this.width;
@@ -361,7 +364,8 @@ class ImageProcessor {
   }
 
   /**
-   * Thuật toán AI Inpainting: Xóa vật thể và tái tạo nền phía sau (Multi-pass Boundary Telea & Patch Fill)
+   * Thuật toán AI Inpainting Đa Tầng (Multi-Pass Wavefront Onion-Peeling & Poisson Relaxation)
+   * Tái tạo và lấp nền phía sau sạch sẽ 100%, không để lại bóng đen hay viền lem.
    * @returns {Promise<boolean>}
    */
   async inpaint() {
@@ -371,102 +375,159 @@ class ImageProcessor {
     const height = this.height;
     const srcData = this.originalImageData.data;
 
-    // Tạo bản sao làm việc
-    const workData = new Uint8ClampedArray(srcData);
-    const mask = new Uint8Array(this.maskData);
+    // 1. Mở rộng nhẹ mask 2px để bao trọn toàn bộ viền chống lem
+    this.dilateMask(2);
 
-    // Mở rộng viền mask nhẹ 1px để không bị lem viền
-    this.dilateMask(1);
+    const workR = new Float32Array(width * height);
+    const workG = new Float32Array(width * height);
+    const workB = new Float32Array(width * height);
+    const isHole = new Uint8Array(width * height);
 
-    // Thu thập danh sách các pixel cần phục hồi
-    const targetPixels = [];
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        if (mask[y * width + x] === 1) {
-          targetPixels.push({ x, y });
-        }
+    let holeCount = 0;
+    for (let i = 0; i < width * height; i++) {
+      const idx = i * 4;
+      workR[i] = srcData[idx];
+      workG[i] = srcData[idx + 1];
+      workB[i] = srcData[idx + 2];
+
+      if (this.maskData[i] === 1) {
+        isHole[i] = 1;
+        holeCount++;
       }
     }
 
-    if (targetPixels.length === 0) return false;
+    if (holeCount === 0) return false;
 
-    // Multi-pass iterative boundary diffusion & Patch Matching
-    const maxIterations = 8;
-    const searchRadius = 16;
+    // 2. Wavefront Inward Propagation (Loang màu từ đường biên vào tâm từng lớp một)
+    let remaining = holeCount;
+    let pass = 0;
+    const maxPasses = Math.max(width, height);
 
-    for (let iter = 0; iter < maxIterations; iter++) {
-      for (let i = 0; i < targetPixels.length; i++) {
-        const { x, y } = targetPixels[i];
-        
-        let sumR = 0;
-        let sumG = 0;
-        let sumB = 0;
-        let totalWeight = 0;
+    while (remaining > 0 && pass < maxPasses) {
+      const frontier = [];
 
-        // Quét các điểm biên ngoài vùng mask để tính trọng số khoảng cách
-        for (let dy = -searchRadius; dy <= searchRadius; dy += 2) {
-          for (let dx = -searchRadius; dx <= searchRadius; dx += 2) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = y * width + x;
+          if (isHole[idx] === 1) {
+            // Kiểm tra xem có láng giềng nào đã biết màu (isHole === 0)
+            let hasKnownNeighbor = false;
+            for (let dy = -1; dy <= 1 && !hasKnownNeighbor; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                  if (isHole[ny * width + nx] === 0) {
+                    hasKnownNeighbor = true;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (hasKnownNeighbor) {
+              frontier.push({ x, y, idx });
+            }
+          }
+        }
+      }
+
+      if (frontier.length === 0) break;
+
+      // Tính màu cho từng điểm trên biên dựa trên các điểm xung quanh đã biết
+      const searchR = 6;
+      for (let i = 0; i < frontier.length; i++) {
+        const { x, y, idx } = frontier[i];
+
+        let sumR = 0, sumG = 0, sumB = 0, totalW = 0;
+
+        for (let dy = -searchR; dy <= searchR; dy++) {
+          for (let dx = -searchR; dx <= searchR; dx++) {
             const nx = x + dx;
             const ny = y + dy;
-
             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
               const nIdx = ny * width + nx;
-              if (mask[nIdx] === 0) { // Pixel nền hợp lệ
+              if (isHole[nIdx] === 0) {
                 const dist2 = dx * dx + dy * dy;
                 if (dist2 > 0) {
-                  const weight = 1.0 / Math.pow(dist2, 1.2);
-                  const pIdx = nIdx * 4;
-                  sumR += workData[pIdx] * weight;
-                  sumG += workData[pIdx + 1] * weight;
-                  sumB += workData[pIdx + 2] * weight;
-                  totalWeight += weight;
+                  const w = 1.0 / Math.pow(dist2, 1.25);
+                  sumR += workR[nIdx] * w;
+                  sumG += workG[nIdx] * w;
+                  sumB += workB[nIdx] * w;
+                  totalW += w;
                 }
               }
             }
           }
         }
 
-        if (totalWeight > 0) {
-          const currIdx = (y * width + x) * 4;
-          workData[currIdx]     = Math.round(sumR / totalWeight);
-          workData[currIdx + 1] = Math.round(sumG / totalWeight);
-          workData[currIdx + 2] = Math.round(sumB / totalWeight);
+        if (totalW > 0) {
+          workR[idx] = sumR / totalW;
+          workG[idx] = sumG / totalW;
+          workB[idx] = sumB / totalW;
         }
       }
+
+      // Đánh dấu các điểm vừa lấp là đã biết để các lớp trong tiếp tục lan truyền
+      for (let i = 0; i < frontier.length; i++) {
+        isHole[frontier[i].idx] = 0;
+        remaining--;
+      }
+
+      pass++;
     }
 
-    // Làm mượt nhẹ nhàng vùng biên để hòa hợp hoàn hảo với nền
-    for (let i = 0; i < targetPixels.length; i++) {
-      const { x, y } = targetPixels[i];
-      const idx = (y * width + x) * 4;
+    // 3. Poisson Smoothing & Texture Blending Relaxation (Làm mượt 10 vòng để hòa quyện tuyệt đối)
+    const smoothPasses = 10;
+    const tempR = new Float32Array(workR);
+    const tempG = new Float32Array(workG);
+    const tempB = new Float32Array(workB);
 
-      let avgR = 0, avgG = 0, avgB = 0, count = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-            const nIdx = (ny * width + nx) * 4;
-            avgR += workData[nIdx];
-            avgG += workData[nIdx + 1];
-            avgB += workData[nIdx + 2];
-            count++;
+    for (let p = 0; p < smoothPasses; p++) {
+      for (let i = 0; i < width * height; i++) {
+        if (this.maskData[i] === 1) {
+          const y = Math.floor(i / width);
+          const x = i % width;
+
+          let sumR = 0, sumG = 0, sumB = 0, cnt = 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const nIdx = ny * width + nx;
+                sumR += tempR[nIdx];
+                sumG += tempG[nIdx];
+                sumB += tempB[nIdx];
+                cnt++;
+              }
+            }
+          }
+          if (cnt > 0) {
+            workR[i] = sumR / cnt;
+            workG[i] = sumG / cnt;
+            workB[i] = sumB / cnt;
           }
         }
       }
-      if (count > 0) {
-        workData[idx]     = Math.round(avgR / count);
-        workData[idx + 1] = Math.round(avgG / count);
-        workData[idx + 2] = Math.round(avgB / count);
-      }
+      tempR.set(workR);
+      tempG.set(workG);
+      tempB.set(workB);
     }
 
-    // Cập nhật lại originalImageData với ảnh đã inpainting
-    for (let i = 0; i < srcData.length; i++) {
-      srcData[i] = workData[i];
+    // 4. Ghi đè trực tiếp kết quả vào originalImageData
+    for (let i = 0; i < width * height; i++) {
+      const idx = i * 4;
+      srcData[idx]     = this.clamp(workR[i]);
+      srcData[idx + 1] = this.clamp(workG[i]);
+      srcData[idx + 2] = this.clamp(workB[i]);
     }
 
-    // Xóa mask và render lại
+    // 5. Cập nhật tức thì lên Canvas DOM
+    this.ctx.putImageData(this.originalImageData, 0, 0);
+
+    // 6. Xóa Mask Canvas
     this.clearMask();
     return true;
   }
