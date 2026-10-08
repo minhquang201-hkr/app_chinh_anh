@@ -12,6 +12,7 @@ class UI {
     this.loadingOverlay = document.getElementById('loadingOverlay');
     
     this.btnReset = document.getElementById('btnReset');
+    this.btnSaveTop = document.getElementById('btnSaveTop');
     this.btnDownload = document.getElementById('btnDownload');
     this.btnCompare = document.getElementById('btnCompare');
     this.btnSaveHistory = document.getElementById('btnSaveHistory');
@@ -118,6 +119,7 @@ class UI {
     this.brightnessSlider.disabled = false;
     this.sharpnessSlider.disabled = false;
     this.btnReset.disabled = false;
+    if (this.btnSaveTop) this.btnSaveTop.disabled = false;
     this.btnDownload.disabled = false;
     this.btnCompare.disabled = false;
     this.btnSaveHistory.disabled = false;

@@ -236,6 +236,32 @@ body {
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
 }
 
+.btn-save {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.btn-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg, #34d399, #10b981);
+}
+
+.btn-save-primary {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: #ffffff;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(5, 150, 105, 0.35);
+}
+
+.btn-save-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(5, 150, 105, 0.55);
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
 .btn-secondary {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--bg-card-border);

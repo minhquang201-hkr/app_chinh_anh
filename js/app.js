@@ -133,13 +133,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
-   * Lưu ảnh hiện tại vào lịch sử
+   * Lưu ảnh hiện tại vào lịch sử và chốt trạng thái làm việc
    */
   async function saveCurrentToHistory() {
     if (!processor.hasImage()) return;
 
     try {
-      const dataUrl = processor.getDataURL('image/png', 0.92);
+      ui.setLoading(true);
+      if (ui.loadingText) ui.loadingText.textContent = '💾 Đang lưu phiên bản ảnh...';
+      await new Promise(r => setTimeout(r, 40));
+
+      const dataUrl = processor.getDataURL('image/png', 1.0);
       await historyMgr.saveHistoryItem({
         userId: getCurrentUserId(),
         fileName: state.fileName,
@@ -149,11 +153,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         width: processor.width,
         height: processor.height
       });
+
       await refreshHistoryUI();
-      ui.showToast('Đã lưu ảnh vào Lịch sử!', 'success');
+      ui.showToast('💾 Đã lưu ảnh thành công vào Lịch sử!', 'success');
     } catch (e) {
       console.error('Lỗi khi lưu lịch sử:', e);
       ui.showToast('Không thể lưu ảnh vào lịch sử.', 'error');
+    } finally {
+      ui.setLoading(false);
+      if (ui.loadingText) ui.loadingText.textContent = 'Đang xử lý pixel...';
     }
   }
 
@@ -211,9 +219,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     ui.showToast('Đã khôi phục thông số mặc định', 'info');
   });
 
-  // Nút Lưu vào lịch sử (Save to History)
-  ui.btnSaveHistory.addEventListener('click', () => {
-    saveCurrentToHistory();
+  // Nút Lưu trên Header và Sidebar
+  if (ui.btnSaveTop) {
+    ui.btnSaveTop.addEventListener('click', () => saveCurrentToHistory());
+  }
+  if (ui.btnSaveHistory) {
+    ui.btnSaveHistory.addEventListener('click', () => saveCurrentToHistory());
+  }
+
+  // Phím tắt Ctrl+S / Cmd+S để lưu ảnh nhanh
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      if (processor.hasImage()) {
+        saveCurrentToHistory();
+      }
+    }
   });
 
   // Nút Tải ảnh về (Download)
