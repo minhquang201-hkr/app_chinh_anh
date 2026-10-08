@@ -421,12 +421,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ================= LẮNG NGHE SỰ KIỆN AI MAKEUP & BEAUTY STUDIO ================= */
 
   const makeupConfig = {
-    lipstick: { color: '#e11d48', opacity: 40, gloss: 25 },
-    eyes: { color: '#6366f1', opacity: 35, brightness: 30 },
-    skin: { smooth: 50, tone: 30, blemish: 40 },
-    hair: { color: '#78350f', opacity: 45 },
-    nose: { highlight: 40, contour: 35 }
+    lipstick: { color: '#e11d48', opacity: 50, gloss: 30 },
+    eyes: { color: '#6366f1', opacity: 45, brightness: 40 },
+    skin: { smooth: 60, tone: 40, blemish: 50 },
+    hair: { color: '#78350f', opacity: 55 },
+    nose: { highlight: 45, contour: 40 }
   };
+
+  let makeupRafId = null;
+  function scheduleMakeupRender() {
+    if (!processor.hasImage()) return;
+    if (makeupRafId) cancelAnimationFrame(makeupRafId);
+    makeupRafId = requestAnimationFrame(() => {
+      processor.applyMakeup(makeupConfig);
+      processor.process(state.brightness, state.sharpness);
+      makeupRafId = null;
+    });
+  }
 
   // Chuyển đổi tab Makeup (Lips / Eyes / Skin / Hair / Nose)
   if (ui.mTabBtns) {
@@ -451,24 +462,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         ui.lipColorPalette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         swatch.classList.add('active');
         makeupConfig.lipstick.color = swatch.dataset.color;
+        scheduleMakeupRender();
       }
     });
   }
   if (ui.customLipColor) {
     ui.customLipColor.addEventListener('input', (e) => {
       makeupConfig.lipstick.color = e.target.value;
+      scheduleMakeupRender();
     });
   }
   if (ui.lipOpacitySlider) {
     ui.lipOpacitySlider.addEventListener('input', (e) => {
       makeupConfig.lipstick.opacity = parseInt(e.target.value, 10);
       if (ui.lipOpacityVal) ui.lipOpacityVal.textContent = `${makeupConfig.lipstick.opacity}%`;
+      scheduleMakeupRender();
     });
   }
   if (ui.lipGlossSlider) {
     ui.lipGlossSlider.addEventListener('input', (e) => {
       makeupConfig.lipstick.gloss = parseInt(e.target.value, 10);
       if (ui.lipGlossVal) ui.lipGlossVal.textContent = `${makeupConfig.lipstick.gloss}%`;
+      scheduleMakeupRender();
     });
   }
 
@@ -480,24 +495,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         ui.eyeColorPalette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         swatch.classList.add('active');
         makeupConfig.eyes.color = swatch.dataset.color;
+        scheduleMakeupRender();
       }
     });
   }
   if (ui.customEyeColor) {
     ui.customEyeColor.addEventListener('input', (e) => {
       makeupConfig.eyes.color = e.target.value;
+      scheduleMakeupRender();
     });
   }
   if (ui.eyeOpacitySlider) {
     ui.eyeOpacitySlider.addEventListener('input', (e) => {
       makeupConfig.eyes.opacity = parseInt(e.target.value, 10);
       if (ui.eyeOpacityVal) ui.eyeOpacityVal.textContent = `${makeupConfig.eyes.opacity}%`;
+      scheduleMakeupRender();
     });
   }
   if (ui.eyeBrightSlider) {
     ui.eyeBrightSlider.addEventListener('input', (e) => {
       makeupConfig.eyes.brightness = parseInt(e.target.value, 10);
       if (ui.eyeBrightVal) ui.eyeBrightVal.textContent = `${makeupConfig.eyes.brightness}%`;
+      scheduleMakeupRender();
     });
   }
 
@@ -506,18 +525,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     ui.skinSmoothSlider.addEventListener('input', (e) => {
       makeupConfig.skin.smooth = parseInt(e.target.value, 10);
       if (ui.skinSmoothVal) ui.skinSmoothVal.textContent = `${makeupConfig.skin.smooth}%`;
+      scheduleMakeupRender();
     });
   }
   if (ui.skinToneSlider) {
     ui.skinToneSlider.addEventListener('input', (e) => {
       makeupConfig.skin.tone = parseInt(e.target.value, 10);
       if (ui.skinToneVal) ui.skinToneVal.textContent = `${makeupConfig.skin.tone}%`;
+      scheduleMakeupRender();
     });
   }
   if (ui.skinBlemishSlider) {
     ui.skinBlemishSlider.addEventListener('input', (e) => {
       makeupConfig.skin.blemish = parseInt(e.target.value, 10);
       if (ui.skinBlemishVal) ui.skinBlemishVal.textContent = `${makeupConfig.skin.blemish}%`;
+      scheduleMakeupRender();
     });
   }
 
@@ -529,18 +551,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         ui.hairColorPalette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         swatch.classList.add('active');
         makeupConfig.hair.color = swatch.dataset.color;
+        scheduleMakeupRender();
       }
     });
   }
   if (ui.customHairColor) {
     ui.customHairColor.addEventListener('input', (e) => {
       makeupConfig.hair.color = e.target.value;
+      scheduleMakeupRender();
     });
   }
   if (ui.hairOpacitySlider) {
     ui.hairOpacitySlider.addEventListener('input', (e) => {
       makeupConfig.hair.opacity = parseInt(e.target.value, 10);
       if (ui.hairOpacityVal) ui.hairOpacityVal.textContent = `${makeupConfig.hair.opacity}%`;
+      scheduleMakeupRender();
     });
   }
 
@@ -549,12 +574,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     ui.noseHighlightSlider.addEventListener('input', (e) => {
       makeupConfig.nose.highlight = parseInt(e.target.value, 10);
       if (ui.noseHighlightVal) ui.noseHighlightVal.textContent = `${makeupConfig.nose.highlight}%`;
+      scheduleMakeupRender();
     });
   }
   if (ui.noseContourSlider) {
     ui.noseContourSlider.addEventListener('input', (e) => {
       makeupConfig.nose.contour = parseInt(e.target.value, 10);
       if (ui.noseContourVal) ui.noseContourVal.textContent = `${makeupConfig.nose.contour}%`;
+      scheduleMakeupRender();
     });
   }
 
@@ -564,12 +591,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!processor.hasImage()) return;
       try {
         ui.setLoading(true);
-        if (ui.loadingText) ui.loadingText.textContent = '💄 Đang nhận diện khuôn mặt & trang điểm...';
+        if (ui.loadingText) ui.loadingText.textContent = '💄 Đang hoàn thiện nét trang điểm...';
         await new Promise(r => setTimeout(r, 60));
 
         processor.applyMakeup(makeupConfig);
-        scheduleRender();
-        ui.showToast('✨ Đã hoàn tất trang điểm & làm đẹp khuôn mặt!', 'success');
+        processor.process(state.brightness, state.sharpness);
+        ui.showToast('✨ Đã áp dụng trang điểm & làm đẹp thành công!', 'success');
       } catch (err) {
         console.error('Lỗi makeup:', err);
         ui.showToast('Không thể áp dụng makeup lên ảnh này.', 'error');
@@ -604,6 +631,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (ui.noseHighlightSlider) { ui.noseHighlightSlider.value = 0; ui.noseHighlightVal.textContent = '0%'; }
       if (ui.noseContourSlider) { ui.noseContourSlider.value = 0; ui.noseContourVal.textContent = '0%'; }
 
+      processor.applyMakeup(makeupConfig);
       processor.process(state.brightness, state.sharpness);
       ui.showToast('Đã đặt lại các thông số trang điểm', 'info');
     });

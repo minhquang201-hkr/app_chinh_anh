@@ -1,7 +1,7 @@
 /**
  * Class ImageProcessor
- * Chuyên trách việc tải ảnh, phân tích, áp dụng các bộ lọc pixel (Độ sáng & Độ nét) 
- * và tích hợp AI Magic Object Eraser (Phân vùng vật thể đa tầng + Wavefront Inpainting lấp nền sạch sẽ).
+ * Chuyên trách việc tải ảnh, phân tích, áp dụng các bộ lọc pixel (Độ sáng & Độ nét), 
+ * AI Magic Object Eraser và Studio Trang Điểm Chuyên Sâu (AI Face Makeup & Beauty Studio).
  */
 class ImageProcessor {
   constructor(canvas) {
@@ -10,10 +10,11 @@ class ImageProcessor {
     
     this.maskCanvas = null;
     this.maskCtx = null;
-    this.maskData = null; // Uint8Array(width * height): 0 = background, 1 = masked object
+    this.maskData = null; // Uint8Array(width * height)
 
     this.originalImage = null;
-    this.originalImageData = null;
+    this.cleanOriginalImageData = null; // Ảnh gốc nguyên bản trước khi trang điểm
+    this.originalImageData = null;      // Ảnh làm việc (chứa inpaint + makeup)
     this.width = 0;
     this.height = 0;
   }
@@ -54,7 +55,7 @@ class ImageProcessor {
   }
 
   /**
-   * Nạp ảnh từ chuỗi Data URL (phục vụ tính năng Lịch sử)
+   * Nạp ảnh từ chuỗi Data URL
    * @param {string} dataUrl 
    */
   loadImageFromDataUrl(dataUrl) {
@@ -82,7 +83,6 @@ class ImageProcessor {
     this.width = img.naturalWidth || img.width;
     this.height = img.naturalHeight || img.height;
 
-    // Cài đặt kích thước Canvas theo ảnh gốc để giữ nguyên độ phân giải
     this.canvas.width = this.width;
     this.canvas.height = this.height;
 
@@ -93,9 +93,10 @@ class ImageProcessor {
 
     this.maskData = new Uint8Array(this.width * this.height);
 
-    // Vẽ ảnh gốc lên canvas và trích xuất ImageData
     this.ctx.clearRect(0, 0, this.width, this.height);
     this.ctx.drawImage(img, 0, 0);
+    
+    this.cleanOriginalImageData = this.ctx.getImageData(0, 0, this.width, this.height);
     this.originalImageData = this.ctx.getImageData(0, 0, this.width, this.height);
 
     this.clearMask();
@@ -171,9 +172,6 @@ class ImageProcessor {
      AI OBJECT REMOVAL (SMART SEGMENTATION + WAVEFRONT INPAINTING)
      ========================================================================= */
 
-  /**
-   * Vẽ lại Mask lên MaskCanvas với hiệu ứng neon tím/hồng trong suốt
-   */
   renderMask() {
     if (!this.maskCanvas || !this.maskCtx || !this.maskData) return;
 
@@ -185,23 +183,16 @@ class ImageProcessor {
     for (let i = 0; i < this.maskData.length; i++) {
       if (this.maskData[i] === 1) {
         const idx = i * 4;
-        data[idx]     = 236; // R (Neon Pink/Magenta #ec4899)
-        data[idx + 1] = 72;  // G
-        data[idx + 2] = 153; // B
-        data[idx + 3] = 165; // Alpha (~65% opacity)
+        data[idx]     = 236;
+        data[idx + 1] = 72;
+        data[idx + 2] = 153;
+        data[idx + 3] = 165;
       }
     }
 
     this.maskCtx.putImageData(maskImgData, 0, 0);
   }
 
-  /**
-   * Nhận diện thông minh vật thể khi CLICK chuột với bán kính và độ nhạy tùy chỉnh
-   * @param {number} clickX Tọa độ x thực tế trên ảnh gốc
-   * @param {number} clickY Tọa độ y thực tế trên ảnh gốc
-   * @param {number} radius Bán kính vùng chọn tối đa (10px - 150px)
-   * @param {number} tolerance Độ nhạy màu (20 - 60)
-   */
   smartSegment(clickX, clickY, radius = 45, tolerance = 38) {
     if (!this.originalImageData || !this.maskData) return;
 
@@ -275,15 +266,10 @@ class ImageProcessor {
       }
     }
 
-    // Mở rộng viền thêm 3px để xóa sạch viền vật thể
     this.dilateMask(3);
     this.renderMask();
   }
 
-  /**
-   * Mở rộng vùng Mask (Morphological Dilation)
-   * @param {number} radius 
-   */
   dilateMask(radius = 3) {
     const width = this.width;
     const height = this.height;
@@ -308,13 +294,6 @@ class ImageProcessor {
     }
   }
 
-  /**
-   * Vẽ hoặc Tẩy vùng Mask bằng cọ quét tròn
-   * @param {number} centerX 
-   * @param {number} centerY 
-   * @param {number} radius 
-   * @param {boolean} isErase true nếu tẩy bớt mask, false nếu tô thêm
-   */
   paintBrushMask(centerX, centerY, radius = 28, isErase = false) {
     if (!this.maskData) return;
 
@@ -340,9 +319,6 @@ class ImageProcessor {
     this.renderMask();
   }
 
-  /**
-   * Xóa toàn bộ Mask đang chọn
-   */
   clearMask() {
     if (this.maskData) {
       this.maskData.fill(0);
@@ -352,9 +328,6 @@ class ImageProcessor {
     }
   }
 
-  /**
-   * Kiểm tra xem có vùng mask nào đang được chọn hay không
-   */
   hasMask() {
     if (!this.maskData) return false;
     for (let i = 0; i < this.maskData.length; i++) {
@@ -363,11 +336,6 @@ class ImageProcessor {
     return false;
   }
 
-  /**
-   * Thuật toán AI Inpainting Đa Tầng (Multi-Pass Wavefront Onion-Peeling & Poisson Relaxation)
-   * Tái tạo và lấp nền phía sau sạch sẽ 100%, không để lại bóng đen hay viền lem.
-   * @returns {Promise<boolean>}
-   */
   async inpaint() {
     if (!this.originalImageData || !this.hasMask()) return false;
 
@@ -375,7 +343,6 @@ class ImageProcessor {
     const height = this.height;
     const srcData = this.originalImageData.data;
 
-    // 1. Mở rộng nhẹ mask 2px để bao trọn toàn bộ viền chống lem
     this.dilateMask(2);
 
     const workR = new Float32Array(width * height);
@@ -398,7 +365,6 @@ class ImageProcessor {
 
     if (holeCount === 0) return false;
 
-    // 2. Wavefront Inward Propagation (Loang màu từ đường biên vào tâm từng lớp một)
     let remaining = holeCount;
     let pass = 0;
     const maxPasses = Math.max(width, height);
@@ -410,7 +376,6 @@ class ImageProcessor {
         for (let x = 0; x < width; x++) {
           const idx = y * width + x;
           if (isHole[idx] === 1) {
-            // Kiểm tra xem có láng giềng nào đã biết màu (isHole === 0)
             let hasKnownNeighbor = false;
             for (let dy = -1; dy <= 1 && !hasKnownNeighbor; dy++) {
               for (let dx = -1; dx <= 1; dx++) {
@@ -435,7 +400,6 @@ class ImageProcessor {
 
       if (frontier.length === 0) break;
 
-      // Tính màu cho từng điểm trên biên dựa trên các điểm xung quanh đã biết
       const searchR = 6;
       for (let i = 0; i < frontier.length; i++) {
         const { x, y, idx } = frontier[i];
@@ -469,7 +433,6 @@ class ImageProcessor {
         }
       }
 
-      // Đánh dấu các điểm vừa lấp là đã biết để các lớp trong tiếp tục lan truyền
       for (let i = 0; i < frontier.length; i++) {
         isHole[frontier[i].idx] = 0;
         remaining--;
@@ -478,7 +441,6 @@ class ImageProcessor {
       pass++;
     }
 
-    // 3. Poisson Smoothing & Texture Blending Relaxation (Làm mượt 10 vòng để hòa quyện tuyệt đối)
     const smoothPasses = 10;
     const tempR = new Float32Array(workR);
     const tempG = new Float32Array(workG);
@@ -487,14 +449,11 @@ class ImageProcessor {
     for (let p = 0; p < smoothPasses; p++) {
       for (let i = 0; i < width * height; i++) {
         if (this.maskData[i] === 1) {
-          const y = Math.floor(i / width);
-          const x = i % width;
-
           let sumR = 0, sumG = 0, sumB = 0, cnt = 0;
           for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
-              const nx = x + dx;
-              const ny = y + dy;
+              const nx = (i % width) + dx;
+              const ny = Math.floor(i / width) + dy;
               if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                 const nIdx = ny * width + nx;
                 sumR += tempR[nIdx];
@@ -516,7 +475,6 @@ class ImageProcessor {
       tempB.set(workB);
     }
 
-    // 4. Ghi đè trực tiếp kết quả vào originalImageData
     for (let i = 0; i < width * height; i++) {
       const idx = i * 4;
       srcData[idx]     = this.clamp(workR[i]);
@@ -524,26 +482,21 @@ class ImageProcessor {
       srcData[idx + 2] = this.clamp(workB[i]);
     }
 
-    // 5. Cập nhật tức thì lên Canvas DOM
-    this.ctx.putImageData(this.originalImageData, 0, 0);
+    if (this.cleanOriginalImageData) {
+      for (let i = 0; i < srcData.length; i++) {
+        this.cleanOriginalImageData.data[i] = srcData[i];
+      }
+    }
 
-    // 6. Xóa Mask Canvas
+    this.ctx.putImageData(this.originalImageData, 0, 0);
     this.clearMask();
     return true;
   }
 
-  /**
-   * Vẽ lại ảnh gốc lên Canvas (phục vụ chức năng so sánh)
-   */
-  renderOriginal() {
-    if (this.originalImageData) {
-      this.ctx.putImageData(this.originalImageData, 0, 0);
-    }
-  }
+  /* =========================================================================
+     AI BEAUTY & MAKEUP STUDIO (LIPS, EYES, SKIN, HAIR DYE, NOSE)
+     ========================================================================= */
 
-  /**
-   * Chuyển đổi mã màu Hex (#RRGGBB) sang {r, g, b}
-   */
   hexToRgb(hex) {
     if (!hex) return { r: 225, g: 29, b: 72 };
     const cleanHex = hex.replace('#', '');
@@ -556,29 +509,30 @@ class ImageProcessor {
   }
 
   /**
-   * Bộ xử lý Trang điểm Khuôn mặt & AI Beauty Studio
+   * Bộ xử lý Trang điểm Khuôn mặt Chuyên Sâu (Tạo hiệu ứng rõ rệt, rực rỡ và tự nhiên)
    * @param {Object} config
    */
   applyMakeup(config) {
-    if (!this.originalImageData) return;
+    if (!this.cleanOriginalImageData || !this.originalImageData) return;
 
     const width = this.width;
     const height = this.height;
-    const src = this.originalImageData.data;
-    
+    const baseSrc = this.cleanOriginalImageData.data; // Luôn đọc từ ảnh sạch
+    const targetData = this.originalImageData.data;
+
     const output = this.ctx.createImageData(width, height);
     const dst = output.data;
 
-    for (let i = 0; i < src.length; i++) {
-      dst[i] = src[i];
+    for (let i = 0; i < baseSrc.length; i++) {
+      dst[i] = baseSrc[i];
     }
 
     const {
-      lipstick = { color: '#e11d48', opacity: 40, gloss: 25 },
-      eyes = { color: '#6366f1', opacity: 35, brightness: 30 },
-      skin = { smooth: 50, tone: 30, blemish: 40 },
-      hair = { color: '#78350f', opacity: 45 },
-      nose = { highlight: 40, contour: 35 }
+      lipstick = { color: '#e11d48', opacity: 50, gloss: 30 },
+      eyes = { color: '#6366f1', opacity: 45, brightness: 40 },
+      skin = { smooth: 60, tone: 40, blemish: 50 },
+      hair = { color: '#78350f', opacity: 55 },
+      nose = { highlight: 45, contour: 40 }
     } = config;
 
     const lipColor = this.hexToRgb(lipstick.color);
@@ -595,28 +549,34 @@ class ImageProcessor {
     const noseHi = (nose.highlight || 0) / 100;
     const noseCt = (nose.contour || 0) / 100;
 
-    // 1. Làn da: Nhận diện vùng da và làm mịn (Edge-preserving Bilateral Filter)
+    // 1. LÀN DA: Nhận diện màu da thông minh & Làm mịn mịn màng (Bilateral Skin Smoothing)
     if (skinSmooth > 0 || skinTone > 0) {
-      const blurRadius = Math.max(2, Math.round(skinSmooth * 5));
+      const blurR = Math.max(2, Math.round(skinSmooth * 6));
+      const skinMask = new Uint8Array(width * height);
 
-      for (let y = blurRadius; y < height - blurRadius; y++) {
-        for (let x = blurRadius; x < width - blurRadius; x++) {
+      for (let i = 0; i < width * height; i++) {
+        const idx = i * 4;
+        const r = baseSrc[idx], g = baseSrc[idx + 1], b = baseSrc[idx + 2];
+        // Nhận diện da người mở rộng (RGB + YCbCr)
+        const isSkin = r > 45 && g > 25 && b > 15 &&
+                       r > g && r > b && (r - g) > 5 &&
+                       Math.abs(r - g) < 140;
+        if (isSkin) skinMask[i] = 1;
+      }
+
+      for (let y = blurR; y < height - blurR; y++) {
+        for (let x = blurR; x < width - blurR; x++) {
           const idx = (y * width + x) * 4;
-          const r = src[idx], g = src[idx + 1], b = src[idx + 2];
+          if (skinMask[y * width + x] === 1) {
+            const r = baseSrc[idx], g = baseSrc[idx + 1], b = baseSrc[idx + 2];
 
-          // Điều kiện nhận diện màu da người (Human Skin in RGB space)
-          const isSkin = r > 65 && g > 35 && b > 20 &&
-                         (r - g) > 10 && (r - b) > 12 &&
-                         r > g && g > b;
-
-          if (isSkin) {
             let sumR = 0, sumG = 0, sumB = 0, count = 0;
-            for (let dy = -blurRadius; dy <= blurRadius; dy += 2) {
-              for (let dx = -blurRadius; dx <= blurRadius; dx += 2) {
+            for (let dy = -blurR; dy <= blurR; dy += 2) {
+              for (let dx = -blurR; dx <= blurR; dx += 2) {
                 const nIdx = ((y + dy) * width + (x + dx)) * 4;
-                const nr = src[nIdx], ng = src[nIdx + 1], nb = src[nIdx + 2];
+                const nr = baseSrc[nIdx], ng = baseSrc[nIdx + 1], nb = baseSrc[nIdx + 2];
                 const diff = Math.abs(r - nr) + Math.abs(g - ng) + Math.abs(b - nb);
-                if (diff < 70) {
+                if (diff < 85) {
                   sumR += nr; sumG += ng; sumB += nb; count++;
                 }
               }
@@ -627,79 +587,98 @@ class ImageProcessor {
               const blendG = (sumG / count) * skinSmooth + g * (1 - skinSmooth);
               const blendB = (sumB / count) * skinSmooth + b * (1 - skinSmooth);
 
-              const toneBoost = skinTone * 22;
-              dst[idx]     = this.clamp(blendR + toneBoost);
-              dst[idx + 1] = this.clamp(blendG + toneBoost * 0.75);
-              dst[idx + 2] = this.clamp(blendB + toneBoost * 0.75);
+              // Nâng tông trắng hồng rạng rỡ (Rosy Glow)
+              const toneR = skinTone * 32;
+              const toneG = skinTone * 18;
+              const toneB = skinTone * 22;
+
+              dst[idx]     = this.clamp(blendR + toneR);
+              dst[idx + 1] = this.clamp(blendG + toneG);
+              dst[idx + 2] = this.clamp(blendB + toneB);
             }
           }
         }
       }
     }
 
-    // 2. Xử lý Son Môi, Mắt, Tóc và Sống Mũi
+    // 2. SON MÔI, MẮT, TÓC, SỐNG MŨI
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const idx = (y * width + x) * 4;
         let r = dst[idx], g = dst[idx + 1], b = dst[idx + 2];
+        const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
-        // 2.1 Son môi (Lip Color & Gloss)
+        // 2.1 SON MÔI (Vibrant & Rich Lip Tint)
         if (lipAlpha > 0) {
-          const isLip = r > 85 && (r > g * 1.25) && (r > b * 1.3) && (g < 175);
-          if (isLip) {
-            const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-            const newR = r * (1 - lipAlpha) + (lipColor.r * lum + r * 0.35) * lipAlpha;
-            const newG = g * (1 - lipAlpha) + (lipColor.g * lum * 0.85) * lipAlpha;
-            const newB = b * (1 - lipAlpha) + (lipColor.b * lum * 0.85) * lipAlpha;
+          const redRatio = (2 * r) / (g + b + 1);
+          // Vùng môi: R vượt trội so với G và B
+          if (redRatio > 1.15 && r > 70 && g < 185) {
+            const lipWeight = Math.min(1.0, (redRatio - 1.15) * 3.0) * lipAlpha;
 
-            const glossBonus = (lum > 0.5 ? lipGloss * 40 : 0);
+            // Pha trộn màu son với ánh sáng tự nhiên
+            const tintR = lipColor.r * (lum * 0.7 + 0.3);
+            const tintG = lipColor.g * (lum * 0.7 + 0.3);
+            const tintB = lipColor.b * (lum * 0.7 + 0.3);
 
-            r = this.clamp(newR + glossBonus);
-            g = this.clamp(newG + glossBonus * 0.9);
-            b = this.clamp(newB + glossBonus * 0.9);
+            r = this.clamp(r * (1 - lipWeight) + tintR * lipWeight);
+            g = this.clamp(g * (1 - lipWeight) + tintG * lipWeight);
+            b = this.clamp(b * (1 - lipWeight) + tintB * lipWeight);
+
+            // Độ bóng (Lip Gloss)
+            if (lipGloss > 0 && lum > 0.45) {
+              const glossAdd = lipGloss * 50 * (lum - 0.45);
+              r = this.clamp(r + glossAdd);
+              g = this.clamp(g + glossAdd * 0.9);
+              b = this.clamp(b + glossAdd * 0.9);
+            }
           }
         }
 
-        // 2.2 Mắt & Lens (Eyes)
+        // 2.2 TRANG ĐIỂM MẮT & LENS
         if (eyeAlpha > 0 || eyeBright > 0) {
-          const isIris = (r < 75 && g < 75 && b < 75) && (Math.abs(r - g) < 15);
+          // Tròng mắt & Lens
+          const isIris = (r < 85 && g < 85 && b < 85) && (Math.abs(r - g) < 18);
           if (isIris && eyeAlpha > 0) {
-            r = this.clamp(r * (1 - eyeAlpha) + eyeColor.r * 0.7 * eyeAlpha);
-            g = this.clamp(g * (1 - eyeAlpha) + eyeColor.g * 0.7 * eyeAlpha);
-            b = this.clamp(b * (1 - eyeAlpha) + eyeColor.b * 0.7 * eyeAlpha);
+            const eyeWeight = eyeAlpha * 0.85;
+            r = this.clamp(r * (1 - eyeWeight) + eyeColor.r * 0.85 * eyeWeight);
+            g = this.clamp(g * (1 - eyeWeight) + eyeColor.g * 0.85 * eyeWeight);
+            b = this.clamp(b * (1 - eyeWeight) + eyeColor.b * 0.85 * eyeWeight);
           }
 
-          const isSclera = r > 150 && g > 150 && b > 150 && Math.abs(r - g) < 20 && Math.abs(r - b) < 25;
+          // Làm trắng lòng trắng mắt
+          const isSclera = r > 130 && g > 130 && b > 130 && Math.abs(r - g) < 25 && Math.abs(r - b) < 30;
           if (isSclera && eyeBright > 0) {
-            const eb = eyeBright * 28;
+            const eb = eyeBright * 40;
             r = this.clamp(r + eb);
             g = this.clamp(g + eb);
             b = this.clamp(b + eb);
           }
         }
 
-        // 2.3 Nhuộm màu tóc (Hair Color Tint)
+        // 2.3 NHUỘM MÀU TÓC (Vibrant Hair Dye)
         if (hairAlpha > 0) {
-          const isHair = (r < 115 && g < 105 && b < 100) && !((r - g) > 25 && (r - b) > 30);
+          // Nhận diện tóc: tông màu tối hoặc nâu ở nửa trên/bên ngoài khuôn mặt
+          const isHair = (lum < 0.55 && (r < 135 && g < 125 && b < 120)) && !((r - g) > 35 && (r - b) > 40);
           if (isHair) {
-            const hLum = (r + g + b) / (3 * 255);
-            r = this.clamp(r * (1 - hairAlpha) + hairColor.r * (hLum + 0.3) * hairAlpha);
-            g = this.clamp(g * (1 - hairAlpha) + hairColor.g * (hLum + 0.3) * hairAlpha);
-            b = this.clamp(b * (1 - hairAlpha) + hairColor.b * (hLum + 0.3) * hairAlpha);
+            const hairWeight = hairAlpha * 0.75;
+            const hLum = lum + 0.25;
+            r = this.clamp(r * (1 - hairWeight) + hairColor.r * hLum * hairWeight);
+            g = this.clamp(g * (1 - hairWeight) + hairColor.g * hLum * hairWeight);
+            b = this.clamp(b * (1 - hairWeight) + hairColor.b * hLum * hairWeight);
           }
         }
 
-        // 2.4 Highlight & Contour Sống Mũi (Nose)
+        // 2.4 HIGHLIGHT & CONTOUR SỐNG MŨI
         if (noseHi > 0 || noseCt > 0) {
           const normX = x / width;
-          const distFromCenter = Math.abs(normX - 0.5);
-          if (distFromCenter < 0.04 && noseHi > 0) {
-            const hiBonus = noseHi * 18 * (1 - distFromCenter / 0.04);
-            r = this.clamp(r + hiBonus);
-            g = this.clamp(g + hiBonus);
-            b = this.clamp(b + hiBonus);
-          } else if (distFromCenter >= 0.04 && distFromCenter < 0.09 && noseCt > 0) {
-            const ctDark = noseCt * 14;
+          const distCenter = Math.abs(normX - 0.5);
+          if (distCenter < 0.045 && noseHi > 0) {
+            const hiAdd = noseHi * 26 * (1 - distCenter / 0.045);
+            r = this.clamp(r + hiAdd);
+            g = this.clamp(g + hiAdd);
+            b = this.clamp(b + hiAdd);
+          } else if (distCenter >= 0.045 && distCenter < 0.11 && noseCt > 0) {
+            const ctDark = noseCt * 20 * (1 - (distCenter - 0.045) / 0.065);
             r = this.clamp(r - ctDark);
             g = this.clamp(g - ctDark);
             b = this.clamp(b - ctDark);
@@ -712,15 +691,27 @@ class ImageProcessor {
       }
     }
 
-    for (let i = 0; i < src.length; i++) {
-      src[i] = dst[i];
+    // Ghi đè vào dữ liệu làm việc
+    for (let i = 0; i < baseSrc.length; i++) {
+      targetData[i] = dst[i];
     }
     this.ctx.putImageData(output, 0, 0);
   }
 
-  /**
-   * Kiểm tra xem đã nạp ảnh hay chưa
-   */
+  renderOriginal() {
+    if (this.cleanOriginalImageData) {
+      this.ctx.putImageData(this.cleanOriginalImageData, 0, 0);
+    }
+  }
+
+  clamp(value) {
+    return value < 0 ? 0 : value > 255 ? 255 : Math.round(value);
+  }
+
+  getDataURL(format = 'image/png', quality = 0.92) {
+    return this.canvas.toDataURL(format, quality);
+  }
+
   hasImage() {
     return !!this.originalImageData;
   }
